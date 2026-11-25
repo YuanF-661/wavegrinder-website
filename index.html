@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wave Grinder</title>
+  <meta name="description" content="An independent creative studio working at the intersection of sound, art and technology. Edinburgh, Scotland.">
+  <style>
+    :root { --fg: #111; --muted: #777; --bg: #fff; --line: #e6e6e6; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fg: #eee; --muted: #888; --bg: #0d0d0d; --line: #232323; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      color: var(--fg); background: var(--bg);
+    }
+    a { color: inherit; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    header { position: sticky; top: 0; z-index: 1; background: var(--bg); border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; justify-content: space-between; align-items: center; height: 56px; }
+    .logo { font-size: 14px; font-weight: 700; letter-spacing: .08em; text-decoration: none; }
+    nav a { margin-left: 20px; font-size: 14px; color: var(--muted); text-decoration: none; }
+    nav a:hover { color: var(--fg); }
+
+    section { padding: 96px 0; border-bottom: 1px solid var(--line); }
+    .label { margin-bottom: 24px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    h1 { margin-bottom: 24px; font-size: clamp(44px, 11vw, 88px); line-height: 1; letter-spacing: -.02em; }
+    h2 { margin-bottom: 16px; font-size: 28px; line-height: 1.25; font-weight: 600; }
+    .lead { margin-bottom: 8px; font-size: 22px; }
+    .muted { color: var(--muted); }
+
+    .list { list-style: none; margin-top: 32px; }
+    .list li { padding: 14px 0; border-top: 1px solid var(--line); }
+
+    .works li { display: grid; grid-template-columns: 40px 1fr; padding: 24px 0; }
+    .works .num { color: var(--muted); }
+    .works h3 { font-size: 20px; font-weight: 600; }
+
+    .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; }
+    .social a { margin-right: 20px; color: var(--muted); }
+
+    footer { padding: 32px 0; font-size: 13px; color: var(--muted); }
+
+    @media (max-width: 480px) {
+      nav a { margin-left: 14px; }
+      section { padding: 64px 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="wrap">
+      <a class="logo" href="#top">WAVE GRINDER</a>
+      <nav>
+        <a href="#practice">Practice</a>
+        <a href="#works">Works</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- 01 Intro -->
+    <section>
+      <div class="wrap">
+        <h1>Wave Grinder</h1>
+        <p class="lead">Exploring the world through sound.</p>
+        <p class="muted">An independent creative studio for sound, art and technology · Edinburgh</p>
+      </div>
+    </section>
+
+    <!-- 02 Practice -->
+    <section id="practice">
+      <div class="wrap">
+        <p class="label">01 — Practice</p>
+        <h2>We work across physical and digital spaces, bringing people, ideas and sound together.</h2>
+        <!-- TODO: 替换为你们真实的方向 -->
+        <ul class="list">
+          <li>Sound Installation</li>
+          <li>Soundscape Composition</li>
+          <li>Interactive Performance</li>
+          <li>Research &amp; Workshops</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 03 Selected Works -->
+    <section id="works">
+      <div class="wrap">
+        <p class="label">02 — Selected Works</p>
+        <h2>A selection of projects reflecting our interests and approaches.</h2>
+        <!-- TODO: 填入年份、形式和一句话描述 -->
+        <ul class="list works">
+          <li>
+            <span class="num">01</span>
+            <div>
+              <h3>Waves of Intuition</h3>
+              <p class="muted">Year · Medium — one-line description.</p>
+            </div>
+          </li>
+          <li>
+            <span class="num">02</span>
+            <div>
+              <h3>Dragon Boat Soundscape</h3>
+              <p class="muted">Year · Medium — one-line description.</p>
+            </div>
+          </li>
+          <li>
+            <span class="num">03</span>
+            <div>
+              <h3>Playhouse of the Dead</h3>
+              <p class="muted">Year · Medium — one-line description.</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 04 Contact (原 04 + 05 合并) -->
+    <section id="contact">
+      <div class="wrap">
+        <p class="label">03 — Contact</p>
+        <h2>Let's work together.</h2>
+        <p>We're open to working with artists, designers, researchers, cultural organisations and creative practitioners across disciplines. Whether you have an idea, a project or simply a question, we'd love to hear from you.</p>
+        <!-- TODO: 替换为真实邮箱和社交链接 -->
+        <a class="email" href="mailto:hello@example.com">hello@example.com</a>
+        <p class="social">
+          <a href="#">Instagram</a>
+          <a href="#">Vimeo</a>
+          <a href="#">SoundCloud</a>
+        </p>
+        <p class="muted" style="margin-top:32px">Edinburgh, Scotland · United Kingdom</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">© 2026 Wave Grinder</div>
+  </footer>
+
+</body>
+</html>

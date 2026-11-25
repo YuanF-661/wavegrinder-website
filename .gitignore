@@ -1,0 +1,6 @@
+# 本地工具配置，不部署
+.claude/
+
+# 系统文件
+.DS_Store
+Thumbs.db

@@ -1,0 +1,4 @@
+# Git 部署会把整个仓库放进 public_html，这里阻止外部访问内部文件
+RedirectMatch 404 /\.git
+RedirectMatch 404 \.md$
+RedirectMatch 404 /\.gitignore$
