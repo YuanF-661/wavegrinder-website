@@ -39,7 +39,9 @@ WG-Website_Nov2026/
 └── .claude/        ← 本地预览配置，不需要上传（已在 .gitignore 中排除）
 ```
 
-GitHub 仓库：`YuanF-661/wavegrinder-website`（private），分支 `main`。
+GitHub 仓库：`YuanF-661/wavegrinder-website`（public），分支 `main`。
+
+**Hostinger 的具体操作步骤见 [HOSTINGER-SETUP.md](HOSTINGER-SETUP.md)。**
 
 以后加图片时，建议新建 `images/` 文件夹，和 `index.html` 放在一起上传。
 
@@ -72,6 +74,8 @@ python3 -m http.server 8000
 ### 方式 B：GitHub + Hostinger Git 自动部署（推荐长期使用）
 
 改完代码 push 到 GitHub，网站自动更新，同时自带版本历史，改坏了可以随时回退。
+
+> **更新：** Hostinger 现在推荐用 **Connect with GitHub**（GitHub App）连接，自动部署默认开启，不用自己设置 SSH key 和 webhook。完整步骤见 [HOSTINGER-SETUP.md](HOSTINGER-SETUP.md)。下面是旧版手动方式，作为备用。
 
 1. **把项目放到 GitHub：** 新建一个仓库（可以是 private），把 `index.html` 等文件推上去。
 2. **在 hPanel 搜索 "Git"**，打开 Git 部署页面。
