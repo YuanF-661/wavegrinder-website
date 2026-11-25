@@ -18,7 +18,18 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
 
+  <link rel="preload" href="fonts/work-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+
   <style>
+    /* 正文字体 Work Sans：本地托管（SIL Open Font License，见 fonts/OFL.txt） */
+    @font-face {
+      font-family: "Work Sans";
+      src: url(fonts/work-sans-latin.woff2) format("woff2");
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
     /* 品牌色取自 logo：鼠尾草绿 #89C3B7 + 酒红 #572525 */
     :root {
       --sage: #89C3B7;       /* 品牌绿：首屏、联系区背景 */
@@ -46,7 +57,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      font: 17px/1.6 "Work Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
       color: var(--ink); background: var(--paper);
     }
     a { color: inherit; }
@@ -121,7 +132,7 @@
         <span class="mark" role="img" aria-label="Wave Grinder logo"></span>
         <h1>Wave Grinder</h1>
         <p class="lead">Exploring the world through sound.</p>
-        <p>An independent creative studio for sound, art and technology · Edinburgh</p>
+        <p>An independent creative studio for sound, art and technology, based in Edinburgh, Scotland.</p>
       </div>
     </section>
 
