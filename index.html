@@ -86,8 +86,35 @@
     h2 { margin-bottom: 16px; font-size: 28px; line-height: 1.25; font-weight: 600; }
     .lead { margin-bottom: 8px; font-size: 22px; }
 
-    .hero { padding: 72px 0 96px; }
-    .hero .mark { height: 180px; margin-bottom: 40px; }
+    .hero { padding: 72px 0 96px; overflow: hidden; }
+
+    /* 首页 logo 互动：悬停（电脑）/ 按住（手机）→ 摆动 + 声波纹 + 环境音（js/logo-sound.js） */
+    .sound-mark {
+      position: relative; display: inline-block; cursor: pointer;
+      touch-action: pan-y; -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+      outline-offset: 10px; border-radius: 8px;
+    }
+    .sound-mark .mark { position: relative; height: 180px; transform-origin: 50% 2%; }
+    .ripple {
+      position: absolute; left: 50%; top: 72%; width: 110%; aspect-ratio: 1;
+      border: 2px solid currentColor; border-radius: 50%; pointer-events: none;
+      transform: translate(-50%, -50%) scale(.5); opacity: 0;
+    }
+    .sound-mark.is-active .mark { animation: sway 4s ease-in-out infinite; }
+    .sound-mark.is-active .ripple { animation: ripple 3.6s cubic-bezier(.2, .6, .4, 1) infinite; }
+    .sound-mark.is-active .ripple:nth-child(2) { animation-delay: 1.2s; }
+    .sound-mark.is-active .ripple:nth-child(3) { animation-delay: 2.4s; }
+    @keyframes sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+    @keyframes ripple {
+      0%   { transform: translate(-50%, -50%) scale(.5); opacity: .45; }
+      100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+    }
+    .sound-hint { margin: 14px 0 32px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .75; min-height: 1.6em; }
+    @media (prefers-reduced-motion: reduce) {
+      .sound-mark.is-active .mark, .sound-mark.is-active .ripple { animation: none; }
+      .sound-mark.is-active .ripple:first-child { opacity: .3; transform: translate(-50%, -50%) scale(1.3); }
+    }
 
     .list { list-style: none; margin-top: 32px; }
     .list li { padding: 14px 0; border-top: 1px solid var(--line); }
@@ -107,7 +134,7 @@
       nav a { margin-left: 18px; }
       section { padding: 64px 0; }
       .hero { padding: 48px 0 64px; }
-      .hero .mark { height: 140px; }
+      .sound-mark .mark { height: 140px; }
     }
   </style>
 </head>
@@ -129,7 +156,12 @@
     <!-- 01 Intro -->
     <section class="band hero">
       <div class="wrap">
-        <span class="mark" role="img" aria-label="Wave Grinder logo"></span>
+        <div class="sound-mark" role="button" tabindex="0" aria-pressed="false"
+             aria-label="Wave Grinder logo. Hover, or press and hold, to hear an ambient sound.">
+          <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
+          <span class="mark"></span>
+        </div>
+        <p class="sound-hint" aria-hidden="true"></p>
         <h1>Wave Grinder</h1>
         <p class="lead">Where people, sound and culture meet.</p>
         <p>An independent creative studio for sound, art and technology, based in Edinburgh, Scotland.</p>
@@ -202,6 +234,8 @@
   <footer>
     <div class="wrap">© 2026 Wave Grinder</div>
   </footer>
+
+  <script src="js/logo-sound.js" defer></script>
 
 </body>
 </html>
