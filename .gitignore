@@ -1,6 +1,9 @@
 # 本地工具配置，不部署
 .claude/
 
+# logo 设计原稿（网站用的是 images/ 里压缩过的版本）
+WG_Logo/
+
 # 旧 WordPress 备份：含用户数据，绝不能进公开仓库
 old-wordpress-backup/
 *.sql

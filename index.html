@@ -5,32 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wave Grinder</title>
   <meta name="description" content="An independent creative studio working at the intersection of sound, art and technology. Edinburgh, Scotland.">
+  <meta name="theme-color" content="#89C3B7">
+
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+
+  <!-- 社交平台分享预览 -->
+  <meta property="og:title" content="Wave Grinder">
+  <meta property="og:description" content="Exploring the world through sound. An independent creative studio in Edinburgh.">
+  <meta property="og:image" content="https://wavegrinderaudio.com/images/og-image.png">
+  <meta property="og:url" content="https://wavegrinderaudio.com/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
   <style>
-    :root { --fg: #111; --muted: #777; --bg: #fff; --line: #e6e6e6; }
-    @media (prefers-color-scheme: dark) {
-      :root { --fg: #eee; --muted: #888; --bg: #0d0d0d; --line: #232323; }
+    /* 品牌色取自 logo：鼠尾草绿 #89C3B7 + 酒红 #572525 */
+    :root {
+      --sage: #89C3B7;       /* 品牌绿：首屏、联系区背景 */
+      --wine: #572525;       /* 品牌红：文字、logo */
+      --paper: #EDF6F4;      /* 中间内容区背景：极浅的绿 */
+      --ink: var(--wine);
+      --muted: #8A5A5A;      /* 次要文字（只用在浅色背景上） */
+      --line: rgba(87, 37, 37, .16);
+      --band-bg: var(--sage);  /* 首屏和联系区 */
+      --band-ink: var(--wine);
+      --band-line: rgba(87, 37, 37, .25);
     }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #1F1212;
+        --ink: #D3E8E2;
+        --muted: #8FB0A8;
+        --line: rgba(137, 195, 183, .16);
+        --band-bg: var(--wine);
+        --band-ink: var(--sage);
+        --band-line: rgba(137, 195, 183, .3);
+      }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
       font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-      color: var(--fg); background: var(--bg);
+      color: var(--ink); background: var(--paper);
     }
     a { color: inherit; }
     .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
 
-    header { position: sticky; top: 0; z-index: 1; background: var(--bg); border-bottom: 1px solid var(--line); }
+    /* logo 用遮罩渲染，颜色跟随文字颜色，深色模式自动变成绿色 */
+    .mark {
+      display: block; aspect-ratio: 268 / 420; background: currentColor;
+      -webkit-mask: url(images/wg-mark.png) center / contain no-repeat;
+              mask: url(images/wg-mark.png) center / contain no-repeat;
+    }
+
+    header { position: sticky; top: 0; z-index: 1; background: var(--band-bg); color: var(--band-ink); border-bottom: 1px solid var(--band-line); }
     header .wrap { display: flex; justify-content: space-between; align-items: center; height: 56px; }
-    .logo { font-size: 14px; font-weight: 700; letter-spacing: .08em; text-decoration: none; }
-    nav a { margin-left: 20px; font-size: 14px; color: var(--muted); text-decoration: none; }
-    nav a:hover { color: var(--fg); }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-decoration: none; white-space: nowrap; }
+    .logo .mark { height: 28px; }
+    nav { white-space: nowrap; }
+    nav a { margin-left: 20px; font-size: 14px; text-decoration: none; opacity: .8; }
+    nav a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
 
     section { padding: 96px 0; border-bottom: 1px solid var(--line); }
-    .label { margin-bottom: 24px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .band { background: var(--band-bg); color: var(--band-ink); border-bottom-color: var(--band-line); }
+    .label { margin-bottom: 24px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .band .label { color: inherit; }
     h1 { margin-bottom: 24px; font-size: clamp(44px, 11vw, 88px); line-height: 1; letter-spacing: -.02em; }
     h2 { margin-bottom: 16px; font-size: 28px; line-height: 1.25; font-weight: 600; }
     .lead { margin-bottom: 8px; font-size: 22px; }
-    .muted { color: var(--muted); }
+
+    .hero { padding: 72px 0 96px; }
+    .hero .mark { height: 180px; margin-bottom: 40px; }
 
     .list { list-style: none; margin-top: 32px; }
     .list li { padding: 14px 0; border-top: 1px solid var(--line); }
@@ -38,15 +84,19 @@
     .works li { display: grid; grid-template-columns: 40px 1fr; padding: 24px 0; }
     .works .num { color: var(--muted); }
     .works h3 { font-size: 20px; font-weight: 600; }
+    .works p { color: var(--muted); }
 
-    .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; }
-    .social a { margin-right: 20px; color: var(--muted); }
+    .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; font-weight: 600; text-underline-offset: 6px; }
+    .social a { margin-right: 20px; text-underline-offset: 4px; }
 
     footer { padding: 32px 0; font-size: 13px; color: var(--muted); }
 
     @media (max-width: 480px) {
-      nav a { margin-left: 14px; }
+      .logo .word { display: none; }   /* 手机上导航栏只留 logo 图形 */
+      nav a { margin-left: 18px; }
       section { padding: 64px 0; }
+      .hero { padding: 48px 0 64px; }
+      .hero .mark { height: 140px; }
     }
   </style>
 </head>
@@ -54,7 +104,7 @@
 
   <header>
     <div class="wrap">
-      <a class="logo" href="#top">WAVE GRINDER</a>
+      <a class="logo" href="#top" aria-label="Wave Grinder, back to top"><span class="mark" aria-hidden="true"></span><span class="word">WAVE GRINDER</span></a>
       <nav>
         <a href="#practice">Practice</a>
         <a href="#works">Works</a>
@@ -66,11 +116,12 @@
   <main id="top">
 
     <!-- 01 Intro -->
-    <section>
+    <section class="band hero">
       <div class="wrap">
+        <span class="mark" role="img" aria-label="Wave Grinder logo"></span>
         <h1>Wave Grinder</h1>
         <p class="lead">Exploring the world through sound.</p>
-        <p class="muted">An independent creative studio for sound, art and technology · Edinburgh</p>
+        <p>An independent creative studio for sound, art and technology · Edinburgh</p>
       </div>
     </section>
 
@@ -100,29 +151,29 @@
             <span class="num">01</span>
             <div>
               <h3>Waves of Intuition</h3>
-              <p class="muted">Year · Medium — one-line description.</p>
+              <p>Year · Medium — one-line description.</p>
             </div>
           </li>
           <li>
             <span class="num">02</span>
             <div>
               <h3>Dragon Boat Soundscape</h3>
-              <p class="muted">Year · Medium — one-line description.</p>
+              <p>Year · Medium — one-line description.</p>
             </div>
           </li>
           <li>
             <span class="num">03</span>
             <div>
               <h3>Playhouse of the Dead</h3>
-              <p class="muted">Year · Medium — one-line description.</p>
+              <p>Year · Medium — one-line description.</p>
             </div>
           </li>
         </ul>
       </div>
     </section>
 
-    <!-- 04 Contact (原 04 + 05 合并) -->
-    <section id="contact">
+    <!-- 04 Contact -->
+    <section id="contact" class="band">
       <div class="wrap">
         <p class="label">03 — Contact</p>
         <h2>Let's work together.</h2>
@@ -131,7 +182,7 @@
         <p class="social">
           <a href="https://www.instagram.com/wave_grinder/" target="_blank" rel="noopener">Instagram</a>
         </p>
-        <p class="muted" style="margin-top:32px">Edinburgh, Scotland · United Kingdom</p>
+        <p style="margin-top:32px">Edinburgh, Scotland · United Kingdom</p>
       </div>
     </section>
 

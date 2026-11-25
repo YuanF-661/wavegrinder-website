@@ -32,7 +32,9 @@
 
 ```
 WG-Website_Nov2026/
-├── index.html      ← 整个网站（目前只有这一个文件）
+├── index.html      ← 整个网站（页面 + 样式）
+├── images/         ← 网站用的 logo、favicon、分享预览图（由 WG_Logo 原稿生成）
+├── WG_Logo/        ← logo 设计原稿，只存在本地，不进仓库
 ├── DEPLOY.md       ← 本文档
 ├── .htaccess       ← 阻止外部访问 .git 文件夹和 .md 文档（Git 部署时这些文件也会进 public_html）
 ├── .gitignore      ← 不进仓库的文件
@@ -115,8 +117,8 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
 - [ ] 填写三个作品的年份、形式和一句话描述
 - [x] 替换邮箱地址
 - [x] 填入 Instagram 链接（Vimeo / SoundCloud 暂无，已从页面移除，有了再加）
-- [ ] 加 favicon（浏览器标签页小图标）
-- [ ] 加分享预览图（`og:image`，在社交平台分享链接时显示）
+- [x] 加 favicon（浏览器标签页小图标）
+- [x] 加分享预览图（`og:image`，在社交平台分享链接时显示）
 - [ ] 用手机实际打开检查一遍
 - [ ] 确认 HTTPS 生效（地址栏有锁形图标）
 
