@@ -103,7 +103,7 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
 
 ## 5. 邮箱
 
-页面上的联系邮箱目前是占位的 `hello@example.com`。Hostinger 主机套餐一般包含域名邮箱：在 hPanel 搜索 **Emails**，创建 `hello@你的域名`，然后替换 `index.html` 里的两处 `hello@example.com`。
+网站联系邮箱：`hello@wavegrinderaudio.com`（已更新到 `index.html`）。Instagram：https://www.instagram.com/wave_grinder/
 
 **关于联系表单：** 静态网站本身不能处理表单提交。目前用邮箱链接（`mailto:`）最简单可靠。如果以后想要表单，可以用 Formspree 这类第三方服务，或者利用 Hostinger 支持的 PHP 写一个简单的发信脚本。
 
@@ -113,8 +113,8 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
 
 - [ ] 替换 Practice 的四个方向为真实内容
 - [ ] 填写三个作品的年份、形式和一句话描述
-- [ ] 替换邮箱地址（`index.html` 里共两处）
-- [ ] 填入 Instagram / Vimeo / SoundCloud 真实链接，没有的就删掉
+- [x] 替换邮箱地址
+- [x] 填入 Instagram 链接（Vimeo / SoundCloud 暂无，已从页面移除，有了再加）
 - [ ] 加 favicon（浏览器标签页小图标）
 - [ ] 加分享预览图（`og:image`，在社交平台分享链接时显示）
 - [ ] 用手机实际打开检查一遍
