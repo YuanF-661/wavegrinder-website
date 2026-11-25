@@ -19,13 +19,23 @@
   <meta name="twitter:card" content="summary_large_image">
 
   <link rel="preload" href="fonts/work-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/nanum-brush-script-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <style>
-    /* 正文字体 Work Sans：本地托管（SIL Open Font License，见 fonts/OFL.txt） */
+    /* 字体都放在本地 fonts/，不从 Google 加载（SIL Open Font License，授权文件在同一文件夹） */
+    /* 正文：Work Sans */
     @font-face {
       font-family: "Work Sans";
       src: url(fonts/work-sans-latin.woff2) format("woff2");
       font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    /* 首页大标题：Nanum Brush Script（毛笔字） */
+    @font-face {
+      font-family: "Nanum Brush Script";
+      src: url(fonts/nanum-brush-script-latin.woff2) format("woff2");
+      font-weight: 400;
       font-style: normal;
       font-display: swap;
     }
@@ -82,7 +92,10 @@
     .band { background: var(--band-bg); color: var(--band-ink); border-bottom-color: var(--band-line); }
     .label { margin-bottom: 24px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
     .band .label { color: inherit; }
-    h1 { margin-bottom: 24px; font-size: clamp(44px, 11vw, 88px); line-height: 1; letter-spacing: -.02em; }
+    h1 {
+      margin-bottom: 20px; font-family: "Nanum Brush Script", "Work Sans", cursive;
+      font-size: clamp(48px, 16vw, 132px); font-weight: 400; line-height: .9; letter-spacing: 0;
+    }
     h2 { margin-bottom: 16px; font-size: 28px; line-height: 1.25; font-weight: 600; }
     .lead { margin-bottom: 8px; font-size: 22px; }
 
@@ -101,10 +114,10 @@
       border: 2px solid currentColor; border-radius: 50%; pointer-events: none;
       transform: translate(-50%, -50%) scale(.5); opacity: 0;
     }
-    .sound-mark.is-active .mark { animation: sway 4s ease-in-out infinite; }
-    .sound-mark.is-active .ripple { animation: ripple 3.6s cubic-bezier(.2, .6, .4, 1) infinite; }
-    .sound-mark.is-active .ripple:nth-child(2) { animation-delay: 1.2s; }
-    .sound-mark.is-active .ripple:nth-child(3) { animation-delay: 2.4s; }
+    .sound-mark.is-active .mark { animation: sway var(--sway-dur, 4s) ease-in-out infinite; }
+    .sound-mark.is-active .ripple { animation: ripple var(--ripple-dur, 3.6s) cubic-bezier(.2, .6, .4, 1) infinite; }
+    .sound-mark.is-active .ripple:nth-child(2) { animation-delay: calc(var(--ripple-dur, 3.6s) / 3); }
+    .sound-mark.is-active .ripple:nth-child(3) { animation-delay: calc(var(--ripple-dur, 3.6s) * 2 / 3); }
     @keyframes sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
     @keyframes ripple {
       0%   { transform: translate(-50%, -50%) scale(.5); opacity: .45; }
