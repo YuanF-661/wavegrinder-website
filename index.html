@@ -31,7 +31,7 @@
       font-style: normal;
       font-display: swap;
     }
-    /* 首页大标题：Nanum Brush Script（毛笔字） */
+    /* 首页大标题 + 左上角小字：Nanum Brush Script（毛笔字） */
     @font-face {
       font-family: "Nanum Brush Script";
       src: url(fonts/nanum-brush-script-latin.woff2) format("woff2");
@@ -84,6 +84,7 @@
     header .wrap { display: flex; justify-content: space-between; align-items: center; height: 56px; }
     .logo { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-decoration: none; white-space: nowrap; }
     .logo .mark { height: 28px; }
+    .logo .word { font-family: "Nanum Brush Script", "Work Sans", cursive; font-size: 27px; font-weight: 400; letter-spacing: 0; line-height: 1; }
     nav { white-space: nowrap; }
     nav a { margin-left: 20px; font-size: 14px; text-decoration: none; opacity: .8; }
     nav a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
@@ -155,7 +156,7 @@
 
   <header>
     <div class="wrap">
-      <a class="logo" href="#top" aria-label="Wave Grinder, back to top"><span class="mark" aria-hidden="true"></span><span class="word">WAVE GRINDER</span></a>
+      <a class="logo" href="#top" aria-label="Wave Grinder, back to top"><span class="mark" aria-hidden="true"></span><span class="word">Wave Grinder</span></a>
       <nav>
         <a href="#practice">Practice</a>
         <a href="#works">Works</a>
