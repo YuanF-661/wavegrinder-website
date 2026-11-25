@@ -130,7 +130,7 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
 2. ~~首页加一段音频互动~~ ✅ 已完成：悬停 / 按住首页 logo 会有摆动 + 声波纹 + 环境音（`js/logo-sound.js`）。
    - 现在的声音是浏览器实时合成的，不需要音频文件。每次触发随机组合：和弦（7 种 × 10 个根音）+ 音色（Warm pad / Glass / Choir / Strings / Felt keys / Organ）+ 细节层（海浪、风铃、低音、空气声），和弦与音色不会连续重复。
    - 各音色的音量已经测量并平衡过（`PATCHES` 里的 `level`）。想单独试听某个音色：网址后面加 `?sound-debug`，先点一下页面，然后在浏览器控制台运行 `wgSound.play(0)`（0–5 对应 6 种音色），`wgSound.stop()` 停止。
-   - 不想在 logo 下显示和弦名：把 `SHOW_CHORD` 改成 `false`。
+   - 出声时，logo 下方的提示文字换成实时波形（画的是正在播放的真实声音）。每种音色有自己的颜色和画法，声波纹也跟着变色；颜色和画法在 `PATCHES` 的 `look` 里调整（`light` 用在浅色模式的绿底上，`dark` 用在深色模式的酒红底上）。调试时可以在控制台运行 `wgSound.now()` 查看当前的和弦与音色。
    - **换成你们自己的声音：** 把一段可循环的音频（建议 mp3，20–40 秒，200KB–1MB 左右）放进 `audio/` 文件夹，然后把 `js/logo-sound.js` 顶部的 `AMBIENT_FILE = ''` 改成 `AMBIENT_FILE = 'audio/文件名.mp3'`。
    - 音量、淡入淡出时间也在同一个位置调整（`VOLUME`、`FADE_IN`、`FADE_OUT`）。
 3. 简短的 About / 团队介绍。

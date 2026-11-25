@@ -4,6 +4,7 @@
 //
 // 每次触发都会随机组合：和弦（7 种 × 不同根音）+ 音色（6 种）+ 细节层（海浪、风铃、低音、空气声）
 // 和弦与音色都不会和上一次重复。所有声音都在浏览器里实时合成，不需要音频文件。
+// 出声时，logo 下方显示实时波形；每种音色有自己的颜色和画法，声波纹也换成同样的颜色。
 //
 // 浏览器规定：访客在页面上点击 / 轻触 / 按键之前，网页不能发声。
 // 所以视觉效果随时可用，声音在访客第一次与页面互动后才会出现，提示文字会说明。
@@ -11,7 +12,9 @@
 (() => {
   const el = document.querySelector('.sound-mark');
   const hint = document.querySelector('.sound-hint');
+  const wave = document.querySelector('.sound-wave');
   if (!el || !hint) return;
+  const ui = hint.parentElement;
 
   // ── 可调设置 ──────────────────────────────────────────────
   // 想改用自己录制的声音：把文件放进 audio/ 文件夹，并在这里填路径，例如 'audio/logo-ambient.mp3'
@@ -20,7 +23,6 @@
   const VOLUME = 0.22;       // 总音量 0–1
   const FADE_IN = 1.4;       // 淡入秒数
   const FADE_OUT = 2.4;      // 淡出秒数
-  const SHOW_CHORD = true;   // 播放时在 logo 下方显示和弦与音色名
   const MAX_VOICES = 3;      // 同时存在的声音上限（快速反复悬停时，旧的在淡出）
   // ─────────────────────────────────────────────────────────
 
@@ -28,7 +30,6 @@
   const TEXT = {
     idle: canHover ? '♪ Hover to listen' : '♪ Press and hold to listen',
     locked: canHover ? '♪ Click to turn on sound' : '♪ Tap once to turn on sound, then hold',
-    playing: '♪ Listening',
   };
   const setHint = (text) => { hint.textContent = text; };
   setHint(TEXT.idle);
@@ -49,18 +50,20 @@
   const NOTE_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 
   // level：各音色的音量补偿，让每种音色听起来差不多一样响
+  // look：波形的画法和颜色（light = 浅色模式，画在绿底上；dark = 深色模式，画在酒红底上）
   const PATCHES = [
-    { name: 'Warm pad', level: 0.9, build: warmPad },
-    { name: 'Glass', level: 2.0, build: glass },
-    { name: 'Choir', level: 2.2, build: choir },
-    { name: 'Strings', level: 2.0, build: strings },
-    { name: 'Felt keys', level: 2.2, build: feltKeys },
-    { name: 'Organ', level: 3.6, build: organ },
+    { name: 'Warm pad', level: 0.9, build: warmPad, look: { style: 'smooth', light: '#8C3A1E', dark: '#F0A38A' } },
+    { name: 'Glass', level: 2.0, build: glass, look: { style: 'mirror', light: '#2F3E6B', dark: '#A9B8F0' } },
+    { name: 'Choir', level: 2.2, build: choir, look: { style: 'layers', light: '#5B2A4F', dark: '#E8A6C4' } },
+    { name: 'Strings', level: 2.0, build: strings, look: { style: 'strands', light: '#7A4E0E', dark: '#E9B872' } },
+    { name: 'Felt keys', level: 2.2, build: feltKeys, look: { style: 'bars', light: '#1F5F57', dark: '#9FE0D2' } },
+    { name: 'Organ', level: 3.6, build: organ, look: { style: 'steps', light: '#3D5A26', dark: '#BFD9A0' } },
   ];
+  const DEFAULT_LOOK = { style: 'smooth', light: '#572525', dark: '#89C3B7' }; // 用自己的音频文件时
 
   // ── 状态 ──────────────────────────────────────────────────
   const AC = window.AudioContext || window.webkitAudioContext;
-  let ctx, master, reverb, echo, noiseBuf, fileBuf;
+  let ctx, master, reverb, echo, analyser, noiseBuf, fileBuf;
   const voices = [];   // 正在发声的声音（包括淡出中的）
   let current = null;  // 这次悬停 / 按住对应的声音
   let active = false;  // 是否正处于悬停 / 按住状态
@@ -94,7 +97,9 @@
 
     master = gainNode(VOLUME);
     const limiter = ctx.createDynamicsCompressor();
-    master.connect(limiter).connect(ctx.destination);
+    analyser = ctx.createAnalyser(); // 读取正在播放的声音，用来画波形
+    analyser.fftSize = 2048;
+    master.connect(limiter).connect(analyser).connect(ctx.destination);
 
     // 混响：约 3.5 秒的柔和空间
     reverb = ctx.createConvolver();
@@ -152,7 +157,11 @@
     // 每次的摆动和声波纹速度也略有不同
     el.style.setProperty('--sway-dur', rand(3.4, 5.2).toFixed(2) + 's');
     el.style.setProperty('--ripple-dur', rand(3.2, 4.8).toFixed(2) + 's');
-    setHint(SHOW_CHORD && current.label ? '♪ ' + current.label : TEXT.playing);
+    // 波形和声波纹换成这个音色的颜色
+    look = current.look;
+    el.style.setProperty('--voice-color', lookColor());
+    ui.classList.add('is-playing');
+    startDrawing();
     return true;
   }
 
@@ -174,7 +183,8 @@
 
     const v = {
       freqs: chord.tones.map((t) => mtof(root + t)),
-      label: `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`,
+      label: `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`, // 不显示，调试时可查看
+      look: patch.look,
       sources: [], nodes: [], timers: [], alive: true,
     };
     v.out = track(v, gainNode(0));            // 整个声音的淡入淡出
@@ -199,7 +209,7 @@
   }
 
   function fileVoice() {
-    const v = { sources: [], nodes: [], timers: [], alive: true, label: '' };
+    const v = { sources: [], nodes: [], timers: [], alive: true, label: AMBIENT_FILE, look: DEFAULT_LOOK };
     v.out = track(v, gainNode(0));
     v.out.connect(master);
     const s = ctx.createBufferSource();
@@ -481,6 +491,170 @@
     return noiseBuf;
   }
 
+  // ── 实时波形 ──────────────────────────────────────────────
+  const g2d = wave ? wave.getContext('2d') : null;
+  const darkScheme = matchMedia('(prefers-color-scheme: dark)');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const POINTS = 120;          // 波形上的点数
+  let look = DEFAULT_LOOK;     // 当前音色的画法和颜色
+  let samples = null;
+  let rafId = 0;
+  let lastFrame = 0;
+  let smoothPeak = 0;
+  let dpr = 1;
+
+  const lookColor = () => (darkScheme.matches ? look.dark : look.light);
+
+  function startDrawing() {
+    if (!g2d || !analyser || rafId) return;
+    const r = wave.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    wave.width = Math.max(1, Math.round(r.width * dpr));
+    wave.height = Math.max(1, Math.round(r.height * dpr));
+    samples = samples || new Float32Array(analyser.fftSize);
+    rafId = requestAnimationFrame(drawFrame);
+  }
+
+  function drawFrame(now) {
+    rafId = 0;
+    const W = wave.width;
+    const H = wave.height;
+
+    // 访客没在悬停、声音也已经完全淡出：收起波形，换回提示文字
+    if (!active && voices.length === 0) {
+      g2d.clearRect(0, 0, W, H);
+      ui.classList.remove('is-playing');
+      el.style.removeProperty('--voice-color');
+      smoothPeak = 0;
+      return;
+    }
+    rafId = requestAnimationFrame(drawFrame);
+    if (reduceMotion.matches && now - lastFrame < 160) return; // 减少动态效果时，每秒只更新几次
+    lastFrame = now;
+
+    analyser.getFloatTimeDomainData(samples);
+    // 从一个"向上穿过 0"的位置开始画，波形会稳定一些，不会左右乱跳
+    const span = 768; // 每帧显示约 16 毫秒的声音
+    let start = 0;
+    for (let i = 1; i < span; i++) {
+      if (samples[i - 1] < 0 && samples[i] >= 0) { start = i; break; }
+    }
+    let peak = 0;
+    for (let i = start; i < start + span; i++) peak = Math.max(peak, Math.abs(samples[i]));
+    // 自动放大：声音很轻也能看清；淡出时波形会跟着变小
+    smoothPeak = Math.max(peak, smoothPeak * 0.97);
+    const scale = (H * 0.42) / Math.max(smoothPeak, 0.06);
+    const limit = H * 0.48;
+    // 把采样压缩成 POINTS 个点：每个点取附近几个采样的平均值，线条更顺
+    const bucket = Math.max(1, Math.floor((span - 32) / POINTS));
+    const at = (offset = 0) => {
+      const pts = new Array(POINTS);
+      for (let k = 0; k < POINTS; k++) {
+        const i0 = start + offset + Math.floor((k * (span - 32)) / (POINTS - 1));
+        let sum = 0;
+        for (let j = 0; j < bucket; j++) sum += samples[i0 + j];
+        const y = (sum / bucket) * scale;
+        pts[k] = Math.max(-limit, Math.min(limit, y));
+      }
+      return pts;
+    };
+
+    g2d.clearRect(0, 0, W, H);
+    const color = lookColor();
+    g2d.strokeStyle = color;
+    g2d.fillStyle = color;
+    g2d.lineJoin = 'round';
+    g2d.lineCap = 'round';
+    (STYLES[look.style] || STYLES.smooth)(g2d, at, W, H, color);
+    g2d.globalAlpha = 1;
+    g2d.shadowBlur = 0;
+  }
+
+  function line(c, pts, W, H, dy = 0) {
+    c.beginPath();
+    pts.forEach((y, k) => {
+      const x = (k * W) / (pts.length - 1);
+      if (k) c.lineTo(x, H / 2 - y + dy); else c.moveTo(x, H / 2 - y + dy);
+    });
+    c.stroke();
+  }
+
+  // 6 种画法，对应 6 种音色
+  const STYLES = {
+    // Warm pad：粗而柔和的线，带光晕
+    smooth(c, at, W, H, color) {
+      c.lineWidth = 2.5 * dpr;
+      c.shadowColor = color;
+      c.shadowBlur = 10 * dpr;
+      line(c, at(), W, H);
+    },
+    // Glass：细线 + 淡淡的倒影
+    mirror(c, at, W, H) {
+      const pts = at();
+      c.lineWidth = 1.4 * dpr;
+      line(c, pts, W, H);
+      c.globalAlpha = 0.32;
+      line(c, pts.map((y) => -y), W, H);
+    },
+    // Choir：三层叠在一起，像几个声部
+    layers(c, at, W, H) {
+      const pts = at();
+      [[1, 0, 2.2, 1], [0.7, -5, 1.4, 0.55], [0.5, 5, 1, 0.35]].forEach(([amp, dy, lw, alpha]) => {
+        c.globalAlpha = alpha;
+        c.lineWidth = lw * dpr;
+        line(c, pts.map((y) => y * amp), W, H, dy * dpr);
+      });
+    },
+    // Strings：三根平行的细线，像琴弦
+    strands(c, at, W, H) {
+      [0, 10, 20].forEach((offset, i) => {
+        c.globalAlpha = 1 - i * 0.28;
+        c.lineWidth = 1.2 * dpr;
+        line(c, at(offset), W, H, (i - 1) * 3.5 * dpr);
+      });
+    },
+    // Felt keys：竖条，像一下下敲击
+    bars(c, at, W, H) {
+      const pts = at();
+      const step = W / pts.length;
+      c.lineWidth = Math.max(2 * dpr, step * 1.1);
+      c.beginPath();
+      for (let k = 0; k < pts.length; k += 2) {
+        const x = k * step + step;
+        const h = Math.max(Math.abs(pts[k]), 1.5 * dpr);
+        c.moveTo(x, H / 2 - h);
+        c.lineTo(x, H / 2 + h);
+      }
+      c.stroke();
+    },
+    // Organ：阶梯状的方波线
+    steps(c, at, W, H) {
+      const pts = at().filter((_, k) => k % 4 === 0);
+      const q = H / 10;
+      const stepX = W / (pts.length - 1);
+      c.lineWidth = 2 * dpr;
+      c.lineJoin = 'miter';
+      c.lineCap = 'square';
+      c.beginPath();
+      let prev = H / 2 - Math.round(pts[0] / q) * q;
+      c.moveTo(0, prev);
+      pts.forEach((y, k) => {
+        const x = k * stepX;
+        const yy = H / 2 - Math.round(y / q) * q;
+        c.lineTo(x, prev);
+        c.lineTo(x, yy);
+        prev = yy;
+      });
+      c.lineTo(W, prev);
+      c.stroke();
+    },
+  };
+
+  // 切换浅色 / 深色模式时，声波纹颜色跟着换
+  darkScheme.addEventListener?.('change', () => {
+    if (ui.classList.contains('is-playing')) el.style.setProperty('--voice-color', lookColor());
+  });
+
   // ── 交互 ──────────────────────────────────────────────────
   function activate() {
     if (active) return;
@@ -534,6 +708,7 @@
       play(patch, textures = true) { force = { patch, textures }; deactivate(); activate(); },
       stop() { force = null; deactivate(); },
       setLevel(patch, level) { PATCHES[patch].level = level; },
+      now: () => (current ? current.label : ''),
     };
   }
 })();
