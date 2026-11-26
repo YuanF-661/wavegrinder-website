@@ -128,13 +128,16 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
 
 1. 每个作品加一张图，点进去有单独的作品页（`works/waves-of-intuition.html` 等）。
 2. ~~首页加一段音频互动~~ ✅ 已完成：悬停 / 按住首页 logo 会有摆动 + 声波纹 + 环境音（`js/logo-sound.js`）。
-   - 现在的声音是浏览器实时合成的，不需要音频文件。每次触发随机组合：和弦（7 种 × 10 个根音）+ 音色（Warm pad / Glass / Choir / Strings / Felt keys / Organ）+ 细节层（海浪、风铃、低音、空气声），和弦与音色不会连续重复。
-   - 各音色的音量已经测量并平衡过（`PATCHES` 里的 `level`）。想单独试听某个音色：网址后面加 `?sound-debug`，先点一下页面，然后在浏览器控制台运行 `wgSound.play(0)`（0–5 对应 6 种音色），`wgSound.stop()` 停止。
+   - 现在的声音是浏览器实时合成的，不需要音频文件。每次触发随机组合：和弦（7 种 × 10 个根音）+ 音色（10 种，见下面）+ 细节层（海浪、风铃、低音、空气声），和弦与音色不会连续重复。
+   - 各音色的音量已经测量并平衡过（`PATCHES` 里的 `level`）。想单独试听某个音色：网址后面加 `?sound-debug`，先点一下页面，然后在浏览器控制台运行 `wgSound.play(0)`（0–9 对应 10 种音色），`wgSound.stop()` 停止。
    - 出声时，logo 下方的提示文字换成实时波形（画的是正在播放的真实声音）。每种音色有自己的颜色和画法，声波纹也跟着变色；颜色和画法在 `PATCHES` 的 `look` 里调整（`light` 用在浅色模式的绿底上，`dark` 用在深色模式的酒红底上）。调试时可以在控制台运行 `wgSound.now()` 查看当前的和弦与音色。
    - **logo 右边的小方块**：logo 出声时出现。松开 / 离开 logo 后 1.5 秒内点它，pad 会继续响；每点一下再延续 3 秒。方块左低右高 8 个音，取自这次和弦的五声音阶，所以总是和谐的；上面清脆、下面圆润。短音的音色跟着 pad 走（`NOTE_TONES`），时间和音数在 `js/logo-sound.js` 顶部的 `GRACE`、`KEEP`、`COLUMNS` 调整。调试：`wgSound.tap(x, y)` 弹一个音，`wgSound.state()` 查看状态。
    - **按住方块演奏**：按住 0.35 秒（`HOLD_DELAY`）或按下拖动，就围绕手指自动弹奏；按得越久越空灵（`ETHER_TIME`）。短音先经过 800 Hz 低通（`TONE_DARK`），越弹越亮（`TONE_BRIGHT`、`BRIGHT_TIME`）；短音整体音量 `TAP_LEVEL`。
    - **两个音量推子**（Pad / Notes）：在 logo 和方块上方，摸上去才展开。左右拖动调音量，手指往上 / 下移开变成微调，连点两下回到 0 dB；位置记在访客自己的浏览器里。
-   - **手机上**：声音一响，logo、方块和波形放大到占满整行（`index.html` 里 `max-width: 600px` 那段）。
+   - **手机上**：声音一响，logo、方块和波形放大到占满整行（`index.html` 里 `max-width: 600px` 那段）。电脑上则整块放大到 1.1 倍，左边文字退后。
+   - **logo 跟着声音动**：低频 → 轻轻缩放，高频 → 光晕，每个音符 → 从 logo 荡出一圈（`reactLogo` / `notePulse`）。
+   - **波形下方两个小圆按钮**：↻ 换音色（和弦不变），♪ 换调（音色不变，换到近关系调，总是和谐）；都是交叉淡入淡出（`SWAP_IN` / `SWAP_OUT`）。
+   - **音色共 10 种**：Warm pad、Glass、Choir、Strings、Felt keys、Organ、Shimmer、Tape、Music box、Cello（`PATCHES`，每种配一种方块短音 `NOTE_TONES`，音量都测量平衡过）。
    - **作品列表的悬停效果**：悬停 / 按住作品时，标题变色，旁边出现同色的动态波形。**目前三个作品都还没有声音**，波形只是视觉占位（龙舟那条会跟着 120 BPM 跳动）。
    - **以后加入作品录音**（加好后，悬停就会播放录音，波形也会自动变成真实声音的波形）：
      1. 把录音放进 `audio/` 文件夹。建议 mp3，15–30 秒，首尾能无缝循环，每个 1MB 以内。
@@ -145,5 +148,6 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
    - **换成你们自己的声音：** 把一段可循环的音频（建议 mp3，20–40 秒，200KB–1MB 左右）放进 `audio/` 文件夹，然后把 `js/logo-sound.js` 顶部的 `AMBIENT_FILE = ''` 改成 `AMBIENT_FILE = 'audio/文件名.mp3'`。
    - 音量、淡入淡出时间也在同一个位置调整（`VOLUME`、`FADE_IN`、`FADE_OUT`）。
    - **改了 `js/` 里的文件以后**：把 `index.html` 底部 `<script src="js/...?v=2">` 的数字加 1（`v=3`、`v=4`……）。Hostinger 的 CDN 有时会把旧版 JS 多缓存几天，换个版本号等于换了新地址，所有访客都会马上拿到新版。
-3. 简短的 About / 团队介绍。
-4. 内容多起来以后，再评估是否迁移到 WordPress 或其他 CMS。
+3. **章节标签**（01 Practice 等）用 Gaegu 手写体（`fonts/gaegu-700-latin.woff2`）。想再调字体：本地打开 `http://localhost:8000/_label-tuner.html`（只在本地，不上线），调好后把"复制设置"的内容发给 Claude。
+4. 简短的 About / 团队介绍。
+5. 内容多起来以后，再评估是否迁移到 WordPress 或其他 CMS。

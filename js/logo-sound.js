@@ -13,6 +13,9 @@
 //         按得越久声音越空灵（长混响和回声慢慢叠高），松开后慢慢退回。
 // 推子：logo 和方块上方各有一条细细的音量推子（Pad / Notes），摸上去才展开、显示数值。
 //       左右拖动调音量；手指往上或往下移开，拖动会变得更精细；连点两下回到 0 dB。
+// 波形下方两个按钮，都是交叉淡入淡出：
+//   Change sound：和弦不变，只换音色；
+//   Change key：音色不变，换到一个"近关系调"（新的五声音阶和原来至少有 4 个音相同），所以总是和谐的。
 //
 // 浏览器规定：访客在页面上点击 / 轻触 / 按键之前，网页不能发声。
 // 所以视觉效果随时可用，声音在访客第一次与页面互动后才会出现，提示文字会说明。
@@ -46,6 +49,8 @@
   const MAX_VOICES = 3;      // 同时存在的声音上限（快速反复悬停时，旧的在淡出）
   const GRACE = 1.5;         // 离开 / 松开 logo 后，还有几秒可以点方块把声音接上
   const KEEP = 3;            // 每点一下方块，pad 至少再延续几秒
+  const SWAP_IN = 1.6;       // 换音色时，新声音淡入几秒
+  const SWAP_OUT = 2.4;      // 换音色时，旧声音淡出几秒
   const COLUMNS = 8;         // 方块从左到右分成几个音
   const HOLD_DELAY = 0.35;   // 在方块上按住多久进入演奏模式（秒）；按住后拖动会立刻进入
   const ETHER_TIME = 6;      // 演奏模式下，大约几秒叠到最空灵
@@ -89,6 +94,10 @@
     { name: 'Strings', level: 2.0, build: strings, look: { style: 'strands', light: '#7A4E0E', dark: '#E9B872' } },
     { name: 'Felt keys', level: 2.2, build: feltKeys, look: { style: 'bars', light: '#1F5F57', dark: '#9FE0D2' } },
     { name: 'Organ', level: 3.6, build: organ, look: { style: 'steps', light: '#3D5A26', dark: '#BFD9A0' } },
+    { name: 'Shimmer', level: 3.4, build: shimmer, look: { style: 'dots', light: '#4A3B8C', dark: '#C7B8F5' } },
+    { name: 'Tape', level: 4.4, build: tape, look: { style: 'ribbon', light: '#6B4A3A', dark: '#E3C2A6' } },
+    { name: 'Music box', level: 3.0, build: musicBox, look: { style: 'stems', light: '#2E5E7E', dark: '#A6D2EE' } },
+    { name: 'Cello', level: 4.0, build: cello, look: { style: 'scribble', light: '#3F3A2A', dark: '#D8CFA8' } },
   ];
   const DEFAULT_LOOK = { style: 'smooth', light: '#572525', dark: '#89C3B7' }; // 用自己的音频文件时
 
@@ -102,6 +111,10 @@
     { name: 'Pizzicato', wave: 'sawtooth', partials: [[1, 1]], decay: 0.9, cut: 1.6, sweep: 8, level: 0.52 },
     { name: 'Felt', wave: 'triangle', partials: [[1, 1], [2, 0.15, 0.6]], decay: 1.9, cut: 4, level: 0.46 },
     { name: 'Reed', wave: 'square', partials: [[1, 0.7], [2, 0.3, 0.8]], decay: 1, cut: 2.5, attack: 0.02, level: 0.45 },
+    { name: 'Crystal', wave: 'sine', partials: [[1, 1], [2, 0.2, 0.6], [4, 0.12, 0.3]], decay: 3, cut: 10, level: 0.33 },
+    { name: 'Tape keys', wave: 'triangle', partials: [[1, 1], [2, 0.1, 0.5]], decay: 1.6, cut: 3, level: 0.46 },
+    { name: 'Music box', wave: 'sine', partials: [[1, 1], [3, 0.18, 0.25], [6.2, 0.06, 0.1]], decay: 2.2, cut: 10, level: 0.38 },
+    { name: 'Harp', wave: 'sawtooth', partials: [[1, 1]], decay: 1.8, cut: 2.2, sweep: 6, level: 0.8 },
   ];
 
   // 两个推子的位置（0–1，0.75 = 0 dB），上次调过的话从浏览器里读出来
@@ -258,19 +271,21 @@
   }
 
   // ── logo 的声音 = 随机和弦 + 随机音色 + 随机细节层 ───────────
-  function createVoice() {
-    const ci = pickIndex(CHORDS.length, lastChord);
-    const pi = force ? force.patch : pickIndex(PATCHES.length, lastPatch);
+  // opts（换音色 / 换调时用）：root、chord（和弦序号）、patch（音色序号）指定了就用指定的，否则随机
+  function createVoice(opts = {}) {
+    const ci = opts.chord ?? pickIndex(CHORDS.length, lastChord);
+    const pi = opts.patch ?? (force ? force.patch : pickIndex(PATCHES.length, lastPatch));
     lastChord = ci;
     lastPatch = pi;
     const chord = CHORDS[ci];
     const patch = PATCHES[pi];
-    const root = ROOT_LOW + Math.floor(Math.random() * (ROOT_HIGH - ROOT_LOW + 1));
+    const root = opts.root ?? ROOT_LOW + Math.floor(Math.random() * (ROOT_HIGH - ROOT_LOW + 1));
 
     // label 不显示，调试时可查看
     const v = baseVoice(patch.level, patch.look, `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`);
     v.freqs = chord.tones.map((t) => mtof(root + t));
     v.root = root;            // 方块上的短音用到
+    v.chord = ci;
     v.scale = chord.scale;
     v.patch = pi;
     v.fader.gain.value = faderGain(FADERS.pad.value);
@@ -397,7 +412,8 @@
   }
 
   // 一个短音：快速起音 + 自然衰减（琴音、风铃）
-  function pluck(v, freq, peak, decay, type, echoAmount) {
+  function pluck(v, freq, peak, decay, type, echoAmount, pulse = 0.45) {
+    notePulse(pulse);
     const t = ctx.currentTime;
     const o = ctx.createOscillator();
     o.type = type;
@@ -519,6 +535,78 @@
     });
   }
 
+  // 微光：和弦音的高八度泛音各自缓慢涨落，像手指摩擦玻璃杯沿
+  function shimmer(v) {
+    const hp = filter(v, 'highpass', 300);
+    hp.connect(v.bus);
+    v.freqs.forEach((f) => {
+      [2, 3, 4].forEach((mult, j) => {
+        const base = 0.012 / (j + 1);
+        const g = track(v, gainNode(base));
+        g.connect(panTo(v, rand(-0.7, 0.7), hp, 0.3));
+        lfo(v, rand(0.05, 0.18), base, g.gain); // 音量在 0 到 2 倍之间慢慢起伏
+        osc(v, 'sine', f * mult, rand(-3, 3), g);
+      });
+    });
+  }
+
+  // 磁带：失谐的锯齿波 + 低通，整体音高轻轻摇晃（wow），底下一层很轻的磁带嘶声
+  function tape(v) {
+    const lp = filter(v, 'lowpass', rand(800, 1200), 0.6);
+    lp.connect(v.bus);
+    const wow = ctx.createOscillator();
+    wow.frequency.value = rand(0.25, 0.45);
+    const wowDepth = track(v, gainNode(rand(6, 10))); // 摇晃幅度（音分）
+    wow.connect(wowDepth);
+    wow.start();
+    v.sources.push(wow);
+    v.freqs.forEach((f, i) => {
+      const g = track(v, gainNode(0.02));
+      g.connect(panTo(v, spread(i, v.freqs.length), lp, 0.15));
+      [-7, 7].forEach((d) => wowDepth.connect(osc(v, 'sawtooth', f, d, g).detune));
+    });
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer();
+    noise.loop = true;
+    const hissBand = filter(v, 'bandpass', 3500, 0.5);
+    const hiss = track(v, gainNode(0.006));
+    noise.connect(hissBand).connect(hiss).connect(v.bus);
+    noise.start();
+    v.sources.push(noise);
+  }
+
+  // 八音盒：很轻的铺底 + 沿和弦往上走的琶音（偶尔空一拍），带回声
+  function musicBox(v) {
+    const lp = filter(v, 'lowpass', 900);
+    lp.connect(v.bus);
+    v.freqs.slice(0, 2).forEach((f) => {
+      const g = track(v, gainNode(0.025));
+      g.connect(lp);
+      osc(v, 'sine', f, 0, g);
+    });
+    const notes = v.freqs.map((f) => { let x = f * 4; while (x > 2400) x /= 2; return x; }).sort((a, b) => a - b);
+    let step = 0;
+    every(v, 0.26, 0.34, 0.3, () => {
+      if (Math.random() < 0.15) return;
+      pluck(v, notes[step++ % notes.length], rand(0.03, 0.05), rand(1.4, 2.2), 'sine', 0.55, 0.3);
+    });
+  }
+
+  // 大提琴：低八度的根音和五度 + 中音区，锯齿波经过缓慢开合的带通，像弓在弦上来回
+  function cello(v) {
+    const bp = filter(v, 'bandpass', rand(350, 500), 1.2);
+    const lp = filter(v, 'lowpass', 1400);
+    bp.connect(lp).connect(v.bus);
+    lfo(v, rand(0.08, 0.15), 180, bp.frequency);
+    const low = [v.freqs[0] / 2, v.freqs[1] / 2, v.freqs[0], v.freqs[2]];
+    low.forEach((f, i) => {
+      const g = track(v, gainNode(0.05));
+      g.connect(panTo(v, spread(i, low.length) * 0.6, bp, 0.1));
+      lfo(v, rand(0.1, 0.25), 0.02, g.gain);
+      [-6, 6].forEach((d) => lfo(v, rand(4.5, 5.5), 5, osc(v, 'sawtooth', f, d, g).detune));
+    });
+  }
+
   // ── 细节层 ────────────────────────────────────────────────
   // 海浪：滤波噪声，约 7–12 秒起伏一次，在左右之间缓慢移动
   function waves(v) {
@@ -637,6 +725,7 @@
 
   const padIsOpen = () => !!padEl && padEl.classList.contains('is-open');
   const rowEl = padEl && padEl.parentElement; // .mark-row：logo + 方块 + 两个推子
+  const heroMarkEl = rowEl && rowEl.parentElement; // .hero-mark：再加上波形和换音色按钮
   // 方块和推子一起出现、变淡、收起
   // .hero-mark 也带上同样的状态：手机上靠它把整块放大到占满一行
   const padClass = (name, on) => [padEl, rowEl, rowEl && rowEl.parentElement].forEach((el) => el && el.classList.toggle(name, on));
@@ -651,7 +740,7 @@
       v.fader.connect(v.etherSend).connect(etherBus);
     }
     clearTimeout(padTimer);
-    rowEl.style.setProperty('--voice-color', lookColor());
+    heroMarkEl.style.setProperty('--voice-color', lookColor()); // 方块、推子、换音色按钮都跟着这个颜色
     padClass('is-open', true);
     padClass('is-fading', false);
   }
@@ -855,6 +944,7 @@
   // ether：0–1，越空灵：余音越长、直接声越轻，并多一层高八度的泛光
   function tapNote(freq, bright, patch, pan, ether = 0, velocity = 1) {
     ensureTapBus();
+    notePulse(0.6 + 0.4 * velocity);
     const tone = NOTE_TONES[patch] || NOTE_TONES[0];
     const t = ctx.currentTime;
     const decay = tone.decay * (1.3 - 0.6 * bright) * (1 + 1.2 * ether);
@@ -994,12 +1084,74 @@
     try { localStorage.setItem('wg-faders', JSON.stringify({ pad: FADERS.pad.value, notes: FADERS.notes.value })); } catch (err) { /* 隐私模式等：不记也没关系 */ }
   }
 
+  // ── 换音色 / 换调：交叉淡入淡出 ──────────────────────────────
+  const actionEls = [...document.querySelectorAll('[data-sound-action]')];
+
+  // 近关系调：新的五声音阶和现在的至少有 4 个音相同（上 / 下五度、关系大小调等），根音必须变
+  function relatedKey(v) {
+    const pcs = (root, scale) => new Set(scale.map((x) => (root + x) % 12));
+    const cur = pcs(v.root, v.scale);
+    const pickFrom = (need) => {
+      const out = [];
+      CHORDS.forEach((chord, ci) => {
+        for (let r = ROOT_LOW; r < ROOT_LOW + 12; r++) {
+          if (r % 12 === v.root % 12) continue;
+          let common = 0;
+          pcs(r, chord.scale).forEach((p) => { if (cur.has(p)) common++; });
+          if (common >= need) out.push({ root: r, chord: ci });
+        }
+      });
+      return out;
+    };
+    const options = pickFrom(4);
+    return pick(options.length ? options : pickFrom(3));
+  }
+
+  // mode：'sound' = 和弦不变、换音色；'key' = 音色不变、换到近关系调
+  function swapVoice(mode = 'sound') {
+    const old = padEngage();
+    if (!old || old.root == null) return;
+    while (voices.length >= MAX_VOICES) killVoice(voices[0] === old ? voices[1] : voices[0]);
+    const v = mode === 'key'
+      ? createVoice({ ...relatedKey(old), patch: old.patch })
+      : createVoice({ root: old.root, chord: old.chord, patch: pickIndex(PATCHES.length, old.patch) });
+    voices.push(v);
+    fadeVoice(v, 1, SWAP_IN);
+    old.fadeOut = SWAP_OUT;
+    releaseVoice(old);
+    if (current === old) current = v;   // logo 还被按着 / 悬停着
+    padOpen(v);                         // 方块、推子换颜色；短音换成新音色 / 新音阶
+    look = v.look;
+    logoEl.style.setProperty('--voice-color', lookColor());
+    react.range = {};                   // logo 的动态按新声音重新校准
+    showWave(logoT);
+    const btn = actionEls.find((el) => el.dataset.soundAction === mode);
+    if (btn) {
+      btn.classList.remove('is-spun');
+      void btn.offsetWidth;             // 重新触发图标动画
+      btn.classList.add('is-spun');
+    }
+  }
+
+  actionEls.forEach((el) => {
+    const run = () => {
+      swapVoice(el.dataset.soundAction);
+      if (tapMode) { clearTimeout(padTimer); padTimer = setTimeout(padRest, KEEP * 1000); }
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') e.preventDefault(); // 手机上不要先触发别的手势
+      run();
+    });
+    // 键盘（Tab 到按钮上按 Enter / 空格）会触发一个没有指针的 click
+    el.addEventListener('click', (e) => { e.preventDefault(); if (e.detail === 0) run(); });
+  });
+
   if (padEl) {
     padEl.addEventListener('pointerdown', padDown);
     padEl.addEventListener('pointermove', padMove);
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((type) => padEl.addEventListener(type, padUp));
     padEl.addEventListener('contextmenu', (e) => e.preventDefault());
-    [padEl, ...faderEls].forEach((el) => {
+    [padEl, ...faderEls, ...document.querySelectorAll('[data-sound-action]')].forEach((el) => {
       el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') padHover = true; });
       el.addEventListener('pointerleave', (e) => {
         if (e.pointerType !== 'mouse') return;
@@ -1118,6 +1270,72 @@
     if (t.ui) t.ui.classList.remove('is-playing');
     if (t.g2d) t.g2d.clearRect(0, 0, t.canvas.width, t.canvas.height);
     t.el.style.removeProperty('--voice-color');
+    if (t.kind === 'logo') stopReact();
+  }
+
+  // ── logo 跟着声音动 ────────────────────────────────────────
+  // 每帧读一次频谱：低频 → logo 轻轻放大；高频 → 光晕；中频（整体响度）→ 声波纹变粗。
+  // 各频段用"自适应范围"：按最近几秒的最低 / 最高值换算成 0–1，所以很平稳的 pad 也能看出呼吸。
+  // 每个音符（方块的短音、pad 里的琴音和风铃）发出时，从 logo 里荡出一圈（notePulse）。
+  const react = { bass: 0, air: 0, lv: 0, kick: 0, raw: null, on: false, range: {} };
+  let freqData = null;
+
+  function reactLogo() {
+    freqData = freqData || new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(freqData);
+    const hz = ctx.sampleRate / analyser.fftSize;
+    const band = (lo, hi) => {
+      const a = Math.max(1, Math.round(lo / hz));
+      const b = Math.max(a + 1, Math.round(hi / hz));
+      let sum = 0;
+      for (let i = a; i < b; i++) sum += freqData[i];
+      return sum / (b - a) / 255;
+    };
+    const raw = { bass: band(40, 250), mid: band(250, 2000), air: band(2000, 8000) };
+    react.raw = raw;
+    // 自适应：范围慢慢收拢，遇到更大 / 更小的值马上撑开；最少留 0.05 的宽度，免得把底噪放大
+    const adapt = (k) => {
+      const r = react.range[k] || (react.range[k] = { lo: raw[k], hi: raw[k] + 0.05 });
+      r.lo = Math.min(raw[k], r.lo + 0.0015);
+      r.hi = Math.max(raw[k], r.hi - 0.0015);
+      const span = Math.max(0.05, r.hi - r.lo);
+      return Math.min(1, Math.max(0, (raw[k] - r.lo) / span));
+    };
+    // 起音快、回落慢，动起来像在呼吸，不会抖
+    const follow = (prev, target, att, rel) => prev + (target - prev) * (target > prev ? att : rel);
+    react.bass = follow(react.bass, adapt('bass'), 0.3, 0.06);
+    react.air = follow(react.air, adapt('air'), 0.35, 0.07);
+    react.lv = follow(react.lv, adapt('mid'), 0.35, 0.07);
+    react.kick *= 0.88;
+    logoEl.classList.add('is-reactive');
+    logoEl.style.setProperty('--bass', react.bass.toFixed(3));
+    // 有声音时始终有一点光晕；音符一响，光晕闪亮一下
+    logoEl.style.setProperty('--air', Math.min(1, 0.25 + 0.5 * react.air + react.kick).toFixed(3));
+    logoEl.style.setProperty('--lv', react.lv.toFixed(3));
+    react.on = true;
+  }
+
+  // 一个音符发出：logo 里荡出一圈，光晕闪一下。strength 0–1（风铃、琴音小一些，方块的音大一些）
+  function notePulse(strength) {
+    if (!react.on || reduceMotion.matches || drawT !== logoT) return;
+    react.kick = Math.max(react.kick, 0.5 * strength);
+    const t = performance.now();
+    if (t - (react.lastPulse || 0) < 180 || logoEl.querySelectorAll('.pulse').length >= 6) return; // 音符很密时不刷屏
+    react.lastPulse = t;
+    const ring = document.createElement('span');
+    ring.className = 'pulse';
+    ring.style.setProperty('--s', strength.toFixed(2));
+    logoEl.insertBefore(ring, logoEl.querySelector('.mark'));
+    setTimeout(() => ring.remove(), 1200);
+  }
+
+  function stopReact() {
+    if (!react.on) return;
+    react.on = false;
+    react.bass = react.air = react.lv = react.kick = 0;
+    react.range = {};
+    logoEl.classList.remove('is-reactive');
+    ['--bass', '--air', '--lv'].forEach((k) => logoEl.style.removeProperty(k));
   }
 
   function drawFrame(now) {
@@ -1152,6 +1370,7 @@
     lastFrame = now;
 
     const at = silent ? silentWave(now / 1000, H) : liveWave(H);
+    if (!silent && t.kind === 'logo' && !reduceMotion.matches) reactLogo();
 
     g2d.clearRect(0, 0, W, H);
     const color = lookColor();
@@ -1270,6 +1489,67 @@
       }
       c.stroke();
     },
+    // Shimmer：沿着波形的一串光点，越响点越大
+    dots(c, at, W, H) {
+      const pts = at();
+      const count = Math.max(10, Math.min(60, Math.floor(W / (6 * dpr))));
+      const stride = pts.length / count;
+      for (let b = 0; b < count; b++) {
+        const y = pts[Math.floor(b * stride)];
+        c.globalAlpha = 0.5 + 0.5 * Math.min(1, Math.abs(y) / (H * 0.3));
+        c.beginPath();
+        c.arc((b + 0.5) * (W / count), H / 2 - y, (1 + (Math.abs(y) / H) * 5) * dpr, 0, Math.PI * 2);
+        c.fill();
+      }
+    },
+    // Tape：一条半透明的带子（波形和它压扁的倒影之间填满）
+    ribbon(c, at, W, H) {
+      const pts = at();
+      const x = (k) => (k * W) / (pts.length - 1);
+      c.globalAlpha = 0.28;
+      c.beginPath();
+      pts.forEach((y, k) => (k ? c.lineTo(x(k), H / 2 - y) : c.moveTo(0, H / 2 - y)));
+      for (let k = pts.length - 1; k >= 0; k--) c.lineTo(x(k), H / 2 + pts[k] * 0.5);
+      c.closePath();
+      c.fill();
+      c.globalAlpha = 1;
+      c.lineWidth = 1.6 * dpr;
+      line(c, pts, W, H);
+    },
+    // Music box：一根根小音针，顶端一个圆点
+    stems(c, at, W, H) {
+      const pts = at();
+      const count = Math.max(8, Math.min(40, Math.floor(W / (9 * dpr))));
+      const stride = pts.length / count;
+      c.lineWidth = 1.2 * dpr;
+      for (let b = 0; b < count; b++) {
+        const xx = (b + 0.5) * (W / count);
+        const y = pts[Math.floor(b * stride)];
+        c.beginPath();
+        c.moveTo(xx, H / 2);
+        c.lineTo(xx, H / 2 - y);
+        c.stroke();
+        c.beginPath();
+        c.arc(xx, H / 2 - y, 2 * dpr, 0, Math.PI * 2);
+        c.fill();
+      }
+    },
+    // Cello：两笔手绘感的线，轻轻抖动，像铅笔描了两遍
+    scribble(c, at, W, H) {
+      const pts = at();
+      const time = performance.now() / 180;
+      c.lineWidth = 1.4 * dpr;
+      [0, 1].forEach((pass) => {
+        c.globalAlpha = pass ? 0.45 : 1;
+        c.beginPath();
+        pts.forEach((y, k) => {
+          const jitter = Math.sin(k * 7.3 + pass * 2.1 + time) * 1.6 * dpr + pass * 2 * dpr;
+          const xx = (k * W) / (pts.length - 1);
+          if (k) c.lineTo(xx, H / 2 - y + jitter); else c.moveTo(xx, H / 2 - y + jitter);
+        });
+        c.stroke();
+      });
+    },
     // Organ：阶梯状的方波线
     steps(c, at, W, H) {
       const pts = at().filter((_, k) => k % 4 === 0);
@@ -1386,6 +1666,8 @@
         }
         return { peak: +peak.toFixed(3), rms: +Math.sqrt(sum / n).toFixed(4) };
       },
+      bands: () => react.raw && { raw: react.raw, bass: +react.bass.toFixed(2), air: +react.air.toFixed(2), lv: +react.lv.toFixed(2) },
+      swap: (mode = 'sound') => swapVoice(mode),
       faders: () => ({ pad: +FADERS.pad.value.toFixed(3), notes: +FADERS.notes.value.toFixed(3) }),
       state: () => ({ tone: tapIn ? Math.round(tapIn.frequency.value) : 0, tapMode, flowing: !!(hold && hold.flowing), ether: etherBus ? +etherBus.gain.value.toFixed(2) : 0, padOpen: padIsOpen(), voices: voices.length, alive: voices.map((v) => v.alive) }),
     };
