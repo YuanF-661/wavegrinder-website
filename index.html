@@ -181,10 +181,11 @@
     .sound-ui.is-playing .sound-wave { opacity: 1; }
 
     /* logo 出声时右边出现的小方块：声音消失前点它，soundscape 会继续，并弹出和谐的短音（js/logo-sound.js） */
-    .mark-row { position: relative; display: inline-flex; vertical-align: top; }
+    @property --pad-size { syntax: '<length>'; inherits: true; initial-value: 136px; }
+    .mark-row { --pad-size: 136px; --pad-gap: 22px; position: relative; display: inline-flex; align-items: center; vertical-align: top; }
     .tap-pad {
       --c: var(--voice-color, currentColor);
-      position: absolute; left: calc(100% + 22px); top: 50%; width: 136px; aspect-ratio: 1;
+      position: absolute; left: calc(100% + var(--pad-gap)); top: 50%; width: var(--pad-size); aspect-ratio: 1;
       border: 2px solid var(--c); border-radius: 18px; overflow: hidden; cursor: pointer;
       background-color: color-mix(in srgb, var(--c) 7%, transparent);
       background-image: repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px),
@@ -193,8 +194,20 @@
       touch-action: none; -webkit-user-select: none; user-select: none;
       -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
       opacity: 0; transform: translateY(-50%) scale(.9); pointer-events: none;
-      transition: opacity .35s, transform .35s cubic-bezier(.2, .8, .3, 1.2), border-color .4s;
+      transition: opacity .35s, transform .35s cubic-bezier(.2, .8, .3, 1.2), border-color .4s, box-shadow .5s;
     }
+    /* 按住演奏：越按越空灵，方块的光晕跟着变大（--ether 0–1 由 js 更新） */
+    .tap-pad.is-flowing {
+      box-shadow: 0 0 calc(6px + var(--ether, 0) * 34px) color-mix(in srgb, var(--c) 70%, transparent),
+                  inset 0 0 calc(4px + var(--ether, 0) * 30px) color-mix(in srgb, var(--c) 45%, transparent);
+    }
+    .tap-finger {
+      position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+      border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); pointer-events: none;
+      animation: tap-finger 1.6s ease-in-out infinite; transition: opacity .4s;
+    }
+    .tap-finger.is-gone { opacity: 0; }
+    @keyframes tap-finger { 0%, 100% { transform: scale(.9); } 50% { transform: scale(1.12); } }
     .tap-pad.is-open { opacity: 1; transform: translateY(-50%) scale(1); pointer-events: auto; }
     .tap-pad.is-fading { opacity: .45; transition: opacity 1.5s linear, transform .35s; }
     .tap-pad.is-hit { transform: translateY(-50%) scale(.97); transition-duration: .06s; }
@@ -208,6 +221,42 @@
       position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
       border: 2px solid var(--c); pointer-events: none; animation: tap-dot .9s cubic-bezier(.2, .6, .4, 1) forwards;
     }
+    /* 音量推子：平时一条细线 + 小点；摸上去变粗、显示数值（js/logo-sound.js） */
+    .fader {
+      --c: var(--voice-color, currentColor);
+      position: absolute; height: 34px; padding-bottom: 7px; display: flex; align-items: flex-end;
+      touch-action: none; -webkit-user-select: none; user-select: none; cursor: ew-resize;
+      -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+      opacity: 0; pointer-events: none; transition: opacity .35s;
+    }
+    .fader-pad { left: 0; right: 0; top: -42px; }
+    .fader-notes { left: calc(100% + var(--pad-gap)); width: var(--pad-size); top: calc(50% - var(--pad-size) / 2 - 42px); }
+    .mark-row.is-open .fader { opacity: .45; pointer-events: auto; }
+    .mark-row.is-fading .fader { opacity: .2; }
+    .mark-row.is-open .fader:hover, .mark-row.is-open .fader.is-active { opacity: 1; }
+    .fader-track {
+      position: relative; flex: 1; height: 2px; border-radius: 2px;
+      background: color-mix(in srgb, var(--c) 30%, transparent); transition: height .2s;
+    }
+    .fader-fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--val, .75) * 100%); border-radius: inherit; background: var(--c); }
+    .fader-unity { position: absolute; left: 75%; top: 50%; width: 1px; height: 8px; transform: translateY(-50%); background: var(--c); opacity: .5; }
+    .fader-knob {
+      position: absolute; left: calc(var(--val, .75) * 100%); top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+      border-radius: 50%; background: var(--c); transition: width .2s, height .2s, margin .2s, box-shadow .2s;
+    }
+    .fader:hover .fader-track, .fader.is-active .fader-track { height: 4px; }
+    .fader.is-active .fader-knob {
+      width: 20px; height: 20px; margin: -10px 0 0 -10px;
+      box-shadow: 0 0 0 7px color-mix(in srgb, var(--c) 22%, transparent);
+    }
+    .fader-value {
+      position: absolute; left: 50%; top: 0; transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+      font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+      color: var(--c); opacity: 0; transition: opacity .2s;
+    }
+    .fader:hover .fader-value, .fader.is-active .fader-value { opacity: 1; }
+
+    .tap-dot.is-small { width: 30px; height: 30px; margin: -15px 0 0 -15px; animation-duration: 1.4s; }
     @keyframes tap-dot {
       0%   { transform: scale(.25); opacity: .9; background: color-mix(in srgb, var(--c) 30%, transparent); }
       100% { transform: scale(1.6); opacity: 0; }
@@ -227,7 +276,7 @@
       .hero-mark { padding-right: 0; align-items: flex-start; }
       .hero-mark .mark-row { margin-right: 120px; }
       .hero-mark .sound-ui { margin-left: -28px; }
-      .tap-pad { width: 140px; left: calc(100% + 22px); }
+      .mark-row { --pad-size: 140px; --pad-gap: 22px; }
       .hero-mark .sound-ui { width: 260px; margin: 20px 0 0; }
       .hero-mark .sound-hint { left: 50%; transform: translate(-50%, -50%); }
       .hero .lead { font-size: 26px; }
@@ -236,7 +285,7 @@
     }
 
     @media (min-width: 900px) and (max-width: 1179px) {
-      .tap-pad { width: 120px; left: calc(100% + 18px); }
+      .mark-row { --pad-size: 120px; --pad-gap: 18px; }
     }
 
     /* ── ③ 作品：每个作品一种颜色；悬停 / 按住会听到一小段声音，标题旁画出同色波形 ── */
@@ -261,7 +310,7 @@
     .work-sound.is-playing .work-note { opacity: 0; }
 
     #contact p { max-width: 640px; }
-    .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; font-weight: 600; text-underline-offset: 6px; }
+    .email { display: inline-block; margin: 32px 0 16px; font-size: clamp(17px, 5.6vw, 24px); font-weight: 600; text-underline-offset: 6px; }
     /* 社交链接：线条图标，颜色跟随文字；点击区域 44px，方便手机点按 */
     .social { display: flex; gap: 8px; margin-left: -10px; }
     .social a {
@@ -279,7 +328,7 @@
 
     @media (prefers-reduced-motion: reduce) {
       .sound-mark.is-active .mark, .sound-mark.is-active .ripple { animation: none; }
-      .tap-dot { animation-duration: .01s; }
+      .tap-dot, .tap-finger { animation-duration: .01s; }
       .sound-mark.is-active .ripple:first-child { opacity: .3; transform: translate(-50%, -50%) scale(1.3); }
       .js .wave-rule, .js .list li::before { clip-path: none; transition: none; }
     }
@@ -297,6 +346,20 @@
       /* 手机上标题旁放不下：♪ 和波形放到编号正下方的空白处 */
       .work-sound { position: absolute; left: 0; top: 74px; width: 44px; height: 24px; }
       .work-note { font-size: 13px; }
+    }
+
+    /* 手机：声音一响，logo + 方块 + 波形放大到占满整行；下面的文字顺滑地让开 */
+    @media (max-width: 600px) {
+      .mark-row { transition: --pad-size .5s cubic-bezier(.2, .8, .3, 1), min-height .5s cubic-bezier(.2, .8, .3, 1); min-height: 0; }
+      .sound-mark .mark { transition: height .5s cubic-bezier(.2, .8, .3, 1); }
+      .hero-mark.is-open .mark-row {
+        --pad-gap: 20px;
+        /* 160px 高的 logo 约 102px 宽：方块 = 整行宽度 − logo − 间距 */
+        --pad-size: min(calc(100vw - 48px - 102px - 20px), 300px);
+        min-height: var(--pad-size);
+      }
+      .hero-mark.is-open .sound-mark .mark { height: 160px; }
+      .hero-mark.is-open .sound-ui { max-width: none; }
     }
   </style>
 </head>
@@ -325,7 +388,15 @@
               <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
               <span class="mark"></span>
             </div>
-            <div class="tap-pad" aria-hidden="true"><span class="tap-hint">tap</span></div>
+            <div class="tap-pad" aria-hidden="true"><span class="tap-hint">tap · hold</span></div>
+            <div class="fader fader-pad" data-fader="pad" aria-hidden="true">
+              <span class="fader-value"></span>
+              <span class="fader-track"><span class="fader-fill"></span><span class="fader-unity"></span><span class="fader-knob"></span></span>
+            </div>
+            <div class="fader fader-notes" data-fader="notes" aria-hidden="true">
+              <span class="fader-value"></span>
+              <span class="fader-track"><span class="fader-fill"></span><span class="fader-unity"></span><span class="fader-knob"></span></span>
+            </div>
           </div>
           <div class="sound-ui">
             <p class="sound-hint" aria-hidden="true"></p>
@@ -423,8 +494,8 @@
     <div class="wrap">© 2026 Wave Grinder</div>
   </footer>
 
-  <script src="js/site.js?v=3" defer></script>
-  <script src="js/logo-sound.js?v=3" defer></script>
+  <script src="js/site.js?v=7" defer></script>
+  <script src="js/logo-sound.js?v=7" defer></script>
 
 </body>
 </html>
