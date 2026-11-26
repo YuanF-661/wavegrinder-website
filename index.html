@@ -219,7 +219,18 @@
 
     #contact p { max-width: 640px; }
     .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; font-weight: 600; text-underline-offset: 6px; }
-    .social a { margin-right: 20px; text-underline-offset: 4px; }
+    /* 社交链接：线条图标，颜色跟随文字；点击区域 44px，方便手机点按 */
+    .social { display: flex; gap: 8px; margin-left: -10px; }
+    .social a {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border-radius: 50%;
+      transition: background-color .2s, transform .2s;
+    }
+    .social a:hover { background: rgba(87, 37, 37, .1); transform: translateY(-1px); }
+    .social a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+    .social svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+    .social .dot { fill: currentColor; stroke: none; }
+    @media (prefers-color-scheme: dark) { .social a:hover { background: rgba(137, 195, 183, .14); } }
 
     footer { padding: 32px 0; font-size: 13px; color: var(--muted); }
 
@@ -347,9 +358,15 @@
         <p>We're open to working with artists, designers, researchers, cultural organisations and creative practitioners across disciplines. Whether you have an idea, a project or simply a question, we'd love to hear from you.</p>
         <a class="email" href="mailto:hello@wavegrinderaudio.com">hello@wavegrinderaudio.com</a>
         <p class="social">
-          <a href="https://www.instagram.com/wave_grinder/" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.instagram.com/wave_grinder/" target="_blank" rel="noopener" aria-label="Wave Grinder on Instagram" title="Instagram">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="3" y="3" width="18" height="18" rx="5.2"/>
+              <circle cx="12" cy="12" r="4.2"/>
+              <circle class="dot" cx="17.3" cy="6.7" r="1.15"/>
+            </svg>
+          </a>
         </p>
-        <p style="margin-top:32px">Edinburgh, Scotland · United Kingdom</p>
+        <p style="margin-top:32px">Edinburgh, Scotland</p>
       </div>
     </section>
 
