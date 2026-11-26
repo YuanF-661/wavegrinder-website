@@ -6,6 +6,10 @@
 // 作品列表：每个作品有自己的一小段声音（颂钵 / 龙舟鼓 / 鬼屋氛围），标题旁画出同色波形。
 // 同一时间只有一个在发声。所有声音都在浏览器里实时合成，不需要音频文件。
 //
+// 小方块：logo 出声时，右边出现一个小方块。离开 / 松开 logo 后，在声音消失前点方块，
+//         pad 会接着响下去；方块上不同位置弹出不同的短音（左低右高、上亮下柔），
+//         这些音都取自这次和弦配套的五声音阶，所以怎么点都和谐。
+//
 // 浏览器规定：访客在页面上点击 / 轻触 / 按键之前，网页不能发声。
 // 所以视觉效果随时可用，声音在访客第一次与页面互动后才会出现，提示文字会说明。
 
@@ -36,6 +40,9 @@
   const FADE_IN = 1.4;       // 淡入秒数
   const FADE_OUT = 2.4;      // 淡出秒数
   const MAX_VOICES = 3;      // 同时存在的声音上限（快速反复悬停时，旧的在淡出）
+  const GRACE = 1.5;         // 离开 / 松开 logo 后，还有几秒可以点方块把声音接上
+  const KEEP = 3;            // 每点一下方块，pad 至少再延续几秒
+  const COLUMNS = 8;         // 方块从左到右分成几个音
   // ─────────────────────────────────────────────────────────
 
   const canHover = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -49,14 +56,15 @@
 
   // ── 和声素材 ──────────────────────────────────────────────
   // tones：相对根音的半音数，都是开放排列（音与音之间留有空间），听起来更松弛
+  // scale：方块上能弹的音（五声音阶，和这个和弦不会有半音冲突）
   const CHORDS = [
-    { name: 'maj9', tones: [0, 7, 16, 23, 26] },
-    { name: 'm9', tones: [0, 7, 15, 22, 26] },
-    { name: 'm11', tones: [0, 7, 10, 15, 17] },
-    { name: 'maj7♯11', tones: [0, 7, 16, 18, 23] },
-    { name: '6/9', tones: [0, 7, 14, 16, 21] },
-    { name: 'sus2', tones: [0, 7, 14, 19, 24] },
-    { name: 'quartal', tones: [0, 5, 10, 15, 20] },
+    { name: 'maj9', tones: [0, 7, 16, 23, 26], scale: [0, 2, 4, 7, 9] },
+    { name: 'm9', tones: [0, 7, 15, 22, 26], scale: [0, 2, 3, 7, 10] },
+    { name: 'm11', tones: [0, 7, 10, 15, 17], scale: [0, 3, 5, 7, 10] },
+    { name: 'maj7♯11', tones: [0, 7, 16, 18, 23], scale: [0, 2, 4, 7, 11] },
+    { name: '6/9', tones: [0, 7, 14, 16, 21], scale: [0, 2, 4, 7, 9] },
+    { name: 'sus2', tones: [0, 7, 14, 19, 24], scale: [0, 2, 5, 7, 9] },
+    { name: 'quartal', tones: [0, 5, 10, 15, 20], scale: [0, 3, 5, 8, 10] },
   ];
   const ROOT_LOW = 43;  // G2
   const ROOT_HIGH = 52; // E3
@@ -74,9 +82,21 @@
   ];
   const DEFAULT_LOOK = { style: 'smooth', light: '#572525', dark: '#89C3B7' }; // 用自己的音频文件时
 
+  // 方块上弹出的短音，跟着这次 pad 的音色走（顺序和 PATCHES 对应）
+  // partials：[频率倍数, 音量, 衰减倍数]；cut：滤波截止（几倍基频）；sweep：拨弦式的滤波扫动
+  // level：已测量平衡过，单独弹奏时比 pad 略响一点
+  const NOTE_TONES = [
+    { name: 'Bell', wave: 'sine', partials: [[1, 1], [2, 0.22, 0.5], [3, 0.07, 0.3]], decay: 2.4, cut: 6, level: 0.35 },
+    { name: 'Glass bell', wave: 'sine', partials: [[1, 1]], fm: 3.5, fmIndex: 1.1, decay: 2.8, cut: 10, level: 0.34 },
+    { name: 'Kalimba', wave: 'sine', partials: [[1, 1], [5.4, 0.1, 0.08], [2, 0.12, 0.4]], decay: 1.5, cut: 8, level: 0.43 },
+    { name: 'Pizzicato', wave: 'sawtooth', partials: [[1, 1]], decay: 0.9, cut: 1.6, sweep: 8, level: 0.52 },
+    { name: 'Felt', wave: 'triangle', partials: [[1, 1], [2, 0.15, 0.6]], decay: 1.9, cut: 4, level: 0.46 },
+    { name: 'Reed', wave: 'square', partials: [[1, 0.7], [2, 0.3, 0.8]], decay: 1, cut: 2.5, attack: 0.02, level: 0.45 },
+  ];
+
   // ── 状态 ──────────────────────────────────────────────────
   const AC = window.AudioContext || window.webkitAudioContext;
-  let ctx, master, reverb, echo, analyser, noiseBuf, fileBuf;
+  let ctx, master, reverb, echo, analyser, noiseBuf, fileBuf, tapBus;
   const voices = [];   // 正在发声的声音（包括淡出中的）
   let current = null;  // 这次悬停 / 按住对应的声音
   let activeT = null;  // 正被悬停 / 按住的元素（logo 或某个作品）
@@ -170,17 +190,25 @@
   function startSound(t) {
     if (!ctx || ctx.state !== 'running') return false;
     if (t.kind !== 'logo' && !(WORKS[t.kind] && WORKS[t.kind].buffer)) return false; // 录音还没下载好
-    while (voices.length >= MAX_VOICES) killVoice(voices[0]);
-    if (t.kind === 'logo') current = fileBuf ? fileVoice() : createVoice();
-    else current = workVoice(t.kind);
-    voices.push(current);
-    fadeVoice(current, 1, current.fadeIn ?? FADE_IN);
+    if (t.kind === 'logo' && tapMode && padVoice && voices.includes(padVoice)) {
+      // 正在用方块延续：回到 logo 时接着这一段，不换和弦
+      current = padVoice;
+      tapMode = false;
+      reviveVoice(current);
+    } else {
+      while (voices.length >= MAX_VOICES) killVoice(voices[0]);
+      if (t.kind === 'logo') current = fileBuf ? fileVoice() : createVoice();
+      else current = workVoice(t.kind);
+      voices.push(current);
+      fadeVoice(current, 1, current.fadeIn ?? FADE_IN);
+    }
     look = current.look;
     if (t.kind === 'logo') {
       // 每次的摆动和声波纹速度略有不同；声波纹换成这个音色的颜色
       t.el.style.setProperty('--sway-dur', rand(3.4, 5.2).toFixed(2) + 's');
       t.el.style.setProperty('--ripple-dur', rand(3.2, 4.8).toFixed(2) + 's');
       t.el.style.setProperty('--voice-color', lookColor());
+      padOpen(current);
     }
     showWave(t);
     return true;
@@ -219,6 +247,9 @@
     // label 不显示，调试时可查看
     const v = baseVoice(patch.level, patch.look, `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`);
     v.freqs = chord.tones.map((t) => mtof(root + t));
+    v.root = root;            // 方块上的短音用到
+    v.scale = chord.scale;
+    v.patch = pi;
 
     patch.build(v);
 
@@ -265,7 +296,16 @@
     v.timers.forEach(clearTimeout);
     const fade = v.fadeOut ?? FADE_OUT;
     fadeVoice(v, 0, fade);
-    setTimeout(() => killVoice(v), (fade + 0.4) * 1000);
+    v.killTimer = setTimeout(() => killVoice(v), (fade + 0.4) * 1000);
+  }
+
+  // 淡出途中被接上（点了方块）：音量回升，琴音、风铃这些循环重新开始
+  function reviveVoice(v, seconds = 0.5) {
+    if (v.alive || !voices.includes(v)) return;
+    clearTimeout(v.killTimer);
+    v.alive = true;
+    fadeVoice(v, 1, seconds);
+    (v.loops || []).forEach((restart) => restart());
   }
 
   // 立即清理（0.1 秒快速淡出，避免爆音）
@@ -329,6 +369,7 @@
       v.timers.push(setTimeout(tick, rand(minGap, maxGap) * 1000));
     };
     v.timers.push(setTimeout(tick, firstDelay * 1000));
+    (v.loops = v.loops || []).push(() => v.timers.push(setTimeout(tick, rand(0.1, minGap) * 1000)));
   }
 
   // 一个短音：快速起音 + 自然衰减（琴音、风铃）
@@ -495,6 +536,184 @@
     noise.connect(hp).connect(g).connect(v.out);
     noise.start();
     v.sources.push(noise);
+  }
+
+  // ── 小方块：延续 pad，并弹出和谐的短音 ────────────────────────
+  const padEl = document.querySelector('.tap-pad');
+  const logoT = triggers.find((t) => t.kind === 'logo');
+  let padVoice = null;   // 方块正在延续的 pad 声音
+  let tapMode = false;   // logo 已经松开，pad 正靠点方块延续
+  let padTimer = 0;
+  let padHover = false;  // 电脑：鼠标停在方块上时，方块不收起
+
+  const padIsOpen = () => !!padEl && padEl.classList.contains('is-open');
+
+  function padOpen(v) {
+    if (!padEl || !v.scale) return;
+    padVoice = v;
+    clearTimeout(padTimer);
+    padEl.style.setProperty('--voice-color', lookColor());
+    padEl.classList.add('is-open');
+    padEl.classList.remove('is-fading');
+  }
+
+  // pad 开始淡出：方块变淡，GRACE 秒内没点就收起
+  function padGrace() {
+    if (!padIsOpen()) return;
+    clearTimeout(padTimer);
+    padEl.classList.add('is-fading');
+    padTimer = setTimeout(() => { if (!padHover) padClose(); }, GRACE * 1000);
+  }
+
+  // 方块收起；soundscape 由方块延续着的话，让它淡出
+  function padClose() {
+    if (!padEl) return;
+    clearTimeout(padTimer);
+    if (tapMode) {
+      tapMode = false;
+      if (padVoice) releaseVoice(padVoice);
+      if (activeT !== logoT) logoEl.classList.remove('is-active');
+    }
+    padEl.classList.remove('is-open', 'is-fading');
+  }
+
+  // 点完方块 KEEP 秒都没再点：pad 开始淡出，再给一次 GRACE 秒的机会
+  function padRest() {
+    tapMode = false;
+    if (padVoice) releaseVoice(padVoice);
+    if (activeT !== logoT) logoEl.classList.remove('is-active');
+    padGrace();
+  }
+
+  function padTap(e) {
+    if (!padIsOpen() || !ctx || ctx.state !== 'running') return;
+    e.preventDefault();
+    let v = padVoice;
+    if (!v || !voices.includes(v)) {
+      // 声音已经完全消失（电脑上鼠标一直停在方块上）：重新起一段
+      while (voices.length >= MAX_VOICES) killVoice(voices[0]);
+      v = createVoice();
+      voices.push(v);
+      fadeVoice(v, 1, 0.6);
+      padOpen(v);
+    } else {
+      reviveVoice(v);
+    }
+    look = v.look;
+    logoEl.style.setProperty('--voice-color', lookColor());
+    showWave(logoT);
+    if (activeT !== logoT) {
+      tapMode = true;
+      logoEl.classList.add('is-active');   // logo 跟着继续摆动、泛声波纹
+      padEl.classList.remove('is-fading');
+      clearTimeout(padTimer);
+      padTimer = setTimeout(padRest, KEEP * 1000);
+    }
+
+    const r = padEl.getBoundingClientRect();
+    const x = Math.min(0.999, Math.max(0, (e.clientX - r.left) / r.width));
+    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    playNote(v, x, y);
+
+    // 点到的位置泛起一圈涟漪
+    const dot = document.createElement('span');
+    dot.className = 'tap-dot';
+    dot.style.left = `${x * 100}%`;
+    dot.style.top = `${y * 100}%`;
+    padEl.appendChild(dot);
+    setTimeout(() => dot.remove(), 1000);
+    padEl.classList.add('is-used', 'is-hit');
+    setTimeout(() => padEl.classList.remove('is-hit'), 70);
+  }
+
+  // 左低右高：COLUMNS 个音，从根音往上两个八度起，沿五声音阶排列
+  function playNote(v, x, y) {
+    const col = Math.floor(x * COLUMNS);
+    const s = v.scale;
+    const midi = v.root + 24 + s[col % s.length] + 12 * Math.floor(col / s.length);
+    tapNote(mtof(midi), 1 - y, v.patch, (x - 0.5) * 1.2);
+  }
+
+  // 一个短音。bright：0 = 方块最下面（柔、长），1 = 最上面（亮、短）
+  function tapNote(freq, bright, patch, pan) {
+    if (!tapBus) {
+      tapBus = gainNode(1);
+      tapBus.connect(master);
+      tapBus.connect(gainNode(0.55)).connect(reverb);
+      tapBus.connect(gainNode(0.3)).connect(echo);
+    }
+    const tone = NOTE_TONES[patch] || NOTE_TONES[0];
+    const t = ctx.currentTime;
+    const decay = tone.decay * (1.3 - 0.6 * bright);
+    const cutMul = 0.6 + 0.9 * bright;
+    const attack = tone.attack || 0.005;
+    const end = t + attack + decay + 0.05;
+    const nodes = [];
+
+    const out = gainNode(tone.level * rand(0.85, 1));
+    nodes.push(out);
+    if (ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = pan;
+      out.connect(p).connect(tapBus);
+      nodes.push(p);
+    } else {
+      out.connect(tapBus);
+    }
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 0.7;
+    const cut = Math.min(freq * tone.cut * cutMul, 14000);
+    if (tone.sweep) {
+      lp.frequency.setValueAtTime(Math.min(freq * tone.sweep * cutMul, 16000), t);
+      lp.frequency.exponentialRampToValueAtTime(cut, t + 0.25);
+    } else {
+      lp.frequency.value = cut;
+    }
+    lp.connect(out);
+    nodes.push(lp);
+
+    const oscs = tone.partials.map(([ratio, gain, dScale = 1], i) => {
+      const o = ctx.createOscillator();
+      o.type = i ? 'sine' : tone.wave;
+      o.frequency.value = freq * ratio;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(gain, t + attack);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay * dScale);
+      o.connect(env).connect(lp);
+      o.start(t);
+      o.stop(end);
+      nodes.push(o, env);
+      return o;
+    });
+    if (tone.fm) {
+      // 玻璃铃：调频，起音时泛音多，随后变纯
+      const mod = ctx.createOscillator();
+      mod.frequency.value = freq * tone.fm;
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(freq * tone.fmIndex * (0.5 + bright), t);
+      depth.gain.exponentialRampToValueAtTime(freq * 0.02, t + decay * 0.5);
+      mod.connect(depth).connect(oscs[0].frequency);
+      mod.start(t);
+      mod.stop(end);
+      nodes.push(mod, depth);
+    }
+    setTimeout(() => nodes.forEach((n) => n.disconnect()), (end - t + 0.3) * 1000);
+  }
+
+  if (padEl) {
+    padEl.addEventListener('pointerdown', padTap);
+    padEl.addEventListener('contextmenu', (e) => e.preventDefault());
+    padEl.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') padHover = true; });
+    padEl.addEventListener('pointerleave', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      padHover = false;
+      if (padIsOpen() && !tapMode && activeT !== logoT) {
+        clearTimeout(padTimer);
+        padTimer = setTimeout(padClose, 600);
+      }
+    });
   }
 
   // ── 作品的声音（悬停作品时播放） ──────────────────────────────
@@ -775,6 +994,7 @@
   function activate(t) {
     if (activeT === t) return;
     if (activeT) deactivate(activeT); // 同一时间只有一个在发声
+    if (t.kind !== 'logo') padClose();
     activeT = t;
     t.el.classList.add('is-active');
     if (t.kind === 'logo') t.el.setAttribute('aria-pressed', 'true');
@@ -804,6 +1024,7 @@
       t.note.textContent = '♪';
     }
     if (ctx) stopSound();
+    if (t.kind === 'logo') padGrace();
   }
 
   triggers.forEach((t) => {
@@ -831,11 +1052,10 @@
   });
 
   // 切到别的标签页时停止
-  document.addEventListener('visibilitychange', () => { if (document.hidden) deactivate(activeT); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { deactivate(activeT); padClose(); } });
 
   // 调试用（网址加 ?sound-debug 才会出现）：逐个试听
   if (location.search.includes('sound-debug')) {
-    const logoT = triggers.find((t) => t.kind === 'logo');
     window.wgSound = {
       patches: PATCHES.map((p) => p.name),
       works: Object.keys(WORKS),
@@ -844,7 +1064,21 @@
       stop() { force = null; deactivate(activeT); },
       setLevel(patch, level) { PATCHES[patch].level = level; },
       setWorkLevel(kind, level) { WORKS[kind].level = level; },
-      now: () => (current ? current.label : ''),
+      now: () => ((current || padVoice) ? (current || padVoice).label : ''),
+      // 按 x、y（0–1）在方块上弹一个音；meter(ms)：这段时间里的峰值和平均响度
+      tap(x, y) { const v = current || padVoice; if (v && v.scale) playNote(v, x, y); },
+      async meter(ms = 1000) {
+        const buf = new Float32Array(analyser.fftSize);
+        let peak = 0; let sum = 0; let n = 0;
+        const endAt = performance.now() + ms;
+        while (performance.now() < endAt) {
+          analyser.getFloatTimeDomainData(buf);
+          for (let i = 0; i < buf.length; i++) { peak = Math.max(peak, Math.abs(buf[i])); sum += buf[i] * buf[i]; n++; }
+          await new Promise((r) => setTimeout(r, 40));
+        }
+        return { peak: +peak.toFixed(3), rms: +Math.sqrt(sum / n).toFixed(4) };
+      },
+      state: () => ({ tapMode, padOpen: padIsOpen(), voices: voices.length, alive: voices.map((v) => v.alive) }),
     };
   }
 })();

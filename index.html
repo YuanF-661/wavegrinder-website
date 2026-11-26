@@ -180,6 +180,39 @@
     .sound-ui.is-playing .sound-hint { opacity: 0; }
     .sound-ui.is-playing .sound-wave { opacity: 1; }
 
+    /* logo 出声时右边出现的小方块：声音消失前点它，soundscape 会继续，并弹出和谐的短音（js/logo-sound.js） */
+    .mark-row { position: relative; display: inline-flex; vertical-align: top; }
+    .tap-pad {
+      --c: var(--voice-color, currentColor);
+      position: absolute; left: calc(100% + 22px); top: 50%; width: 136px; aspect-ratio: 1;
+      border: 2px solid var(--c); border-radius: 18px; overflow: hidden; cursor: pointer;
+      background-color: color-mix(in srgb, var(--c) 7%, transparent);
+      background-image: repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px),
+        color-mix(in srgb, var(--c) 22%, transparent) calc(12.5% - 1px) 12.5%);
+      background-position: -1px 0;
+      touch-action: none; -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+      opacity: 0; transform: translateY(-50%) scale(.9); pointer-events: none;
+      transition: opacity .35s, transform .35s cubic-bezier(.2, .8, .3, 1.2), border-color .4s;
+    }
+    .tap-pad.is-open { opacity: 1; transform: translateY(-50%) scale(1); pointer-events: auto; }
+    .tap-pad.is-fading { opacity: .45; transition: opacity 1.5s linear, transform .35s; }
+    .tap-pad.is-hit { transform: translateY(-50%) scale(.97); transition-duration: .06s; }
+    .tap-hint {
+      position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; pointer-events: none;
+      font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--c);
+      transition: opacity .4s;
+    }
+    .tap-pad.is-used .tap-hint { opacity: 0; }
+    .tap-dot {
+      position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+      border: 2px solid var(--c); pointer-events: none; animation: tap-dot .9s cubic-bezier(.2, .6, .4, 1) forwards;
+    }
+    @keyframes tap-dot {
+      0%   { transform: scale(.25); opacity: .9; background: color-mix(in srgb, var(--c) 30%, transparent); }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
     @media (min-width: 900px) {
       .hero { padding: 64px 0 120px; }
       .hero-grid {
@@ -189,11 +222,21 @@
       .hero-text { grid-area: text; }
       .hero-mark { grid-area: mark; display: flex; flex-direction: column; align-items: center; padding-right: 40px; }
       .hero-mark .sound-mark .mark { height: 320px; }
+      /* 给 logo 右边的小方块留出位置；波形仍然居中在 logo 下方 */
+      .hero-grid { column-gap: 48px; }
+      .hero-mark { padding-right: 0; align-items: flex-start; }
+      .hero-mark .mark-row { margin-right: 120px; }
+      .hero-mark .sound-ui { margin-left: -28px; }
+      .tap-pad { width: 140px; left: calc(100% + 22px); }
       .hero-mark .sound-ui { width: 260px; margin: 20px 0 0; }
       .hero-mark .sound-hint { left: 50%; transform: translate(-50%, -50%); }
       .hero .lead { font-size: 26px; }
       .hero .intro { max-width: 500px; }
       #practice .list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px; max-width: 900px; }
+    }
+
+    @media (min-width: 900px) and (max-width: 1179px) {
+      .tap-pad { width: 120px; left: calc(100% + 18px); }
     }
 
     /* ── ③ 作品：每个作品一种颜色；悬停 / 按住会听到一小段声音，标题旁画出同色波形 ── */
@@ -236,6 +279,7 @@
 
     @media (prefers-reduced-motion: reduce) {
       .sound-mark.is-active .mark, .sound-mark.is-active .ripple { animation: none; }
+      .tap-dot { animation-duration: .01s; }
       .sound-mark.is-active .ripple:first-child { opacity: .3; transform: translate(-50%, -50%) scale(1.3); }
       .js .wave-rule, .js .list li::before { clip-path: none; transition: none; }
     }
@@ -275,10 +319,13 @@
     <section class="band hero">
       <div class="wrap hero-grid">
         <div class="hero-mark">
-          <div class="sound-mark" role="button" tabindex="0" aria-pressed="false"
-               aria-label="Wave Grinder logo. Hover, or press and hold, to hear an ambient sound.">
-            <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
-            <span class="mark"></span>
+          <div class="mark-row">
+            <div class="sound-mark" role="button" tabindex="0" aria-pressed="false"
+                 aria-label="Wave Grinder logo. Hover, or press and hold, to hear an ambient sound.">
+              <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
+              <span class="mark"></span>
+            </div>
+            <div class="tap-pad" aria-hidden="true"><span class="tap-hint">tap</span></div>
           </div>
           <div class="sound-ui">
             <p class="sound-hint" aria-hidden="true"></p>
@@ -376,8 +423,8 @@
     <div class="wrap">© 2026 Wave Grinder</div>
   </footer>
 
-  <script src="js/site.js?v=2" defer></script>
-  <script src="js/logo-sound.js?v=2" defer></script>
+  <script src="js/site.js?v=3" defer></script>
+  <script src="js/logo-sound.js?v=3" defer></script>
 
 </body>
 </html>
