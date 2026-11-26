@@ -1,20 +1,32 @@
-// Wave Grinder 首页 logo 互动
-// 电脑：鼠标悬停 → logo 摆动 + 声波纹 + 环境音；移开后淡出
-// 手机：按住 → 同样效果；松手后淡出
+// Wave Grinder 网站的声音互动（首页 logo + 作品列表）
+// 电脑：鼠标悬停 → 出声；移开后淡出。手机：按住 → 出声；松手后淡出。
 //
-// 每次触发都会随机组合：和弦（7 种 × 不同根音）+ 音色（6 种）+ 细节层（海浪、风铃、低音、空气声）
-// 和弦与音色都不会和上一次重复。所有声音都在浏览器里实时合成，不需要音频文件。
-// 出声时，logo 下方显示实时波形；每种音色有自己的颜色和画法，声波纹也换成同样的颜色。
+// 首页 logo：每次随机组合和弦（7 种 × 不同根音）+ 音色（6 种）+ 细节层（海浪、风铃、低音、空气声），
+//           logo 摆动、声波纹扩散，logo 下方画出实时波形。
+// 作品列表：每个作品有自己的一小段声音（颂钵 / 龙舟鼓 / 鬼屋氛围），标题旁画出同色波形。
+// 同一时间只有一个在发声。所有声音都在浏览器里实时合成，不需要音频文件。
 //
 // 浏览器规定：访客在页面上点击 / 轻触 / 按键之前，网页不能发声。
 // 所以视觉效果随时可用，声音在访客第一次与页面互动后才会出现，提示文字会说明。
 
 (() => {
-  const el = document.querySelector('.sound-mark');
+  // 能发声的元素：首页 logo，以及作品列表里带 data-sound 的每一项
+  const logoEl = document.querySelector('.sound-mark');
   const hint = document.querySelector('.sound-hint');
-  const wave = document.querySelector('.sound-wave');
-  if (!el || !hint) return;
-  const ui = hint.parentElement;
+  const triggers = [];
+  if (logoEl && hint) {
+    triggers.push({ el: logoEl, ui: hint.parentElement, canvas: document.querySelector('.sound-wave'), kind: 'logo' });
+  }
+  document.querySelectorAll('[data-sound]').forEach((item) => {
+    const ui = item.querySelector('.work-sound');
+    triggers.push({
+      el: item, ui, kind: item.dataset.sound,
+      canvas: ui && ui.querySelector('canvas'),
+      note: ui && ui.querySelector('.work-note'),
+    });
+  });
+  if (!triggers.length) return;
+  const statusEl = logoEl || document.documentElement;
 
   // ── 可调设置 ──────────────────────────────────────────────
   // 想改用自己录制的声音：把文件放进 audio/ 文件夹，并在这里填路径，例如 'audio/logo-ambient.mp3'
@@ -30,8 +42,9 @@
   const TEXT = {
     idle: canHover ? '♪ Hover to listen' : '♪ Press and hold to listen',
     locked: canHover ? '♪ Click to turn on sound' : '♪ Tap once to turn on sound, then hold',
+    workLocked: canHover ? '♪ click for sound' : '♪ tap, then hold',
   };
-  const setHint = (text) => { hint.textContent = text; };
+  const setHint = (text) => { if (hint) hint.textContent = text; };
   setHint(TEXT.idle);
 
   // ── 和声素材 ──────────────────────────────────────────────
@@ -66,7 +79,8 @@
   let ctx, master, reverb, echo, analyser, noiseBuf, fileBuf;
   const voices = [];   // 正在发声的声音（包括淡出中的）
   let current = null;  // 这次悬停 / 按住对应的声音
-  let active = false;  // 是否正处于悬停 / 按住状态
+  let activeT = null;  // 正被悬停 / 按住的元素（logo 或某个作品）
+  let drawT = null;    // 正在画波形的元素
   let playing = false; // 这次悬停 / 按住是否已经出声
   let lastChord = -1;
   let lastPatch = -1;
@@ -92,8 +106,8 @@
   function setup() {
     if (ctx || !AC) return;
     ctx = new AC();
-    el.dataset.audio = ctx.state;
-    ctx.onstatechange = () => { el.dataset.audio = ctx.state; };
+    statusEl.dataset.audio = ctx.state;
+    ctx.onstatechange = () => { statusEl.dataset.audio = ctx.state; };
 
     master = gainNode(VOLUME);
     const limiter = ctx.createDynamicsCompressor();
@@ -127,6 +141,7 @@
         .then((b) => { fileBuf = b; })
         .catch(() => {}); // 文件读不到就继续用合成音
     }
+    loadWorkAudio();
   }
 
   // 第一次点击 / 轻触 / 按键时解锁声音（页面任何位置都可以）
@@ -143,25 +158,31 @@
   ['pointerdown', 'touchend', 'keydown', 'click'].forEach((type) =>
     addEventListener(type, unlock, { capture: true, passive: true }));
 
-  // 声音刚解锁时，如果访客正悬停 / 按住着 logo，马上开始播放
+  // 声音刚解锁时，如果访客正悬停 / 按住着某个元素，马上开始播放
   function onReady() {
-    if (active && !playing && startSound()) playing = true;
+    if (!activeT || (activeT.kind !== 'logo' && !hasAudio(activeT))) return;
+    if (!playing && startSound(activeT)) {
+      playing = true;
+      if (activeT.note) activeT.note.textContent = '♪';
+    }
   }
 
-  function startSound() {
+  function startSound(t) {
     if (!ctx || ctx.state !== 'running') return false;
+    if (t.kind !== 'logo' && !(WORKS[t.kind] && WORKS[t.kind].buffer)) return false; // 录音还没下载好
     while (voices.length >= MAX_VOICES) killVoice(voices[0]);
-    current = fileBuf ? fileVoice() : createVoice();
+    if (t.kind === 'logo') current = fileBuf ? fileVoice() : createVoice();
+    else current = workVoice(t.kind);
     voices.push(current);
-    fadeVoice(current, 1, FADE_IN);
-    // 每次的摆动和声波纹速度也略有不同
-    el.style.setProperty('--sway-dur', rand(3.4, 5.2).toFixed(2) + 's');
-    el.style.setProperty('--ripple-dur', rand(3.2, 4.8).toFixed(2) + 's');
-    // 波形和声波纹换成这个音色的颜色
+    fadeVoice(current, 1, current.fadeIn ?? FADE_IN);
     look = current.look;
-    el.style.setProperty('--voice-color', lookColor());
-    ui.classList.add('is-playing');
-    startDrawing();
+    if (t.kind === 'logo') {
+      // 每次的摆动和声波纹速度略有不同；声波纹换成这个音色的颜色
+      t.el.style.setProperty('--sway-dur', rand(3.4, 5.2).toFixed(2) + 's');
+      t.el.style.setProperty('--ripple-dur', rand(3.2, 4.8).toFixed(2) + 's');
+      t.el.style.setProperty('--voice-color', lookColor());
+    }
+    showWave(t);
     return true;
   }
 
@@ -171,8 +192,22 @@
     current = null;
   }
 
-  // ── 一个"声音"= 随机和弦 + 随机音色 + 随机细节层 ───────────
-  function createVoice(options = {}) {
+  // 每个"声音"共用的骨架：音量淡入淡出、混响、回声
+  function baseVoice(level, voiceLook, label, reverbAmount = rand(0.45, 0.85)) {
+    const v = { label, look: voiceLook, sources: [], nodes: [], timers: [], alive: true };
+    v.out = track(v, gainNode(0));            // 整个声音的淡入淡出
+    v.out.connect(master);
+    const reverbSend = track(v, gainNode(reverbAmount));
+    v.out.connect(reverbSend).connect(reverb);
+    v.bus = track(v, gainNode(level));        // 音色输出
+    v.bus.connect(v.out);
+    v.echoSend = track(v, gainNode(1));
+    v.echoSend.connect(echo);
+    return v;
+  }
+
+  // ── logo 的声音 = 随机和弦 + 随机音色 + 随机细节层 ───────────
+  function createVoice() {
     const ci = pickIndex(CHORDS.length, lastChord);
     const pi = force ? force.patch : pickIndex(PATCHES.length, lastPatch);
     lastChord = ci;
@@ -181,20 +216,9 @@
     const patch = PATCHES[pi];
     const root = ROOT_LOW + Math.floor(Math.random() * (ROOT_HIGH - ROOT_LOW + 1));
 
-    const v = {
-      freqs: chord.tones.map((t) => mtof(root + t)),
-      label: `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`, // 不显示，调试时可查看
-      look: patch.look,
-      sources: [], nodes: [], timers: [], alive: true,
-    };
-    v.out = track(v, gainNode(0));            // 整个声音的淡入淡出
-    v.out.connect(master);
-    const reverbSend = track(v, gainNode(rand(0.45, 0.85)));
-    v.out.connect(reverbSend).connect(reverb);
-    v.bus = track(v, gainNode(patch.level));  // 音色输出
-    v.bus.connect(v.out);
-    v.echoSend = track(v, gainNode(1));
-    v.echoSend.connect(echo);
+    // label 不显示，调试时可查看
+    const v = baseVoice(patch.level, patch.look, `${NOTE_NAMES[root % 12]} ${chord.name} · ${patch.name}`);
+    v.freqs = chord.tones.map((t) => mtof(root + t));
 
     patch.build(v);
 
@@ -239,8 +263,9 @@
     if (!v.alive) return;
     v.alive = false;
     v.timers.forEach(clearTimeout);
-    fadeVoice(v, 0, FADE_OUT);
-    setTimeout(() => killVoice(v), (FADE_OUT + 0.4) * 1000);
+    const fade = v.fadeOut ?? FADE_OUT;
+    fadeVoice(v, 0, fade);
+    setTimeout(() => killVoice(v), (fade + 0.4) * 1000);
   }
 
   // 立即清理（0.1 秒快速淡出，避免爆音）
@@ -472,6 +497,53 @@
     v.sources.push(noise);
   }
 
+  // ── 作品的声音（悬停作品时播放） ──────────────────────────────
+  // file：作品的录音片段，例如 'audio/waves-of-intuition.mp3'（建议 15–30 秒、能无缝循环）。
+  //       留空 = 暂时没有声音：悬停时只显示同色的动态波形（不代表真实声音）。
+  // look：波形的画法和颜色，和网页上作品编号的颜色一致。level：音量补偿。
+  const WORKS = {
+    waves: {
+      file: '', level: 1, fadeIn: 0.6, fadeOut: 2,
+      label: 'Waves of Intuition', look: { style: 'mirror', light: '#2F3E6B', dark: '#A9B8F0' },
+    },
+    dragon: {
+      file: '', level: 1, fadeIn: 0.3, fadeOut: 1.2,
+      label: 'Dragon Boat Soundscape', look: { style: 'bars', light: '#8C3A1E', dark: '#F0A38A' },
+    },
+    playhouse: {
+      file: '', level: 1, fadeIn: 0.8, fadeOut: 2,
+      label: 'Playhouse of the Dead', look: { style: 'layers', light: '#5B2A4F', dark: '#E8A6C4' },
+    },
+  };
+  const hasAudio = (t) => t.kind !== 'logo' && !!(WORKS[t.kind] && WORKS[t.kind].file);
+
+  // 声音解锁后，提前把作品录音下载好
+  function loadWorkAudio() {
+    Object.values(WORKS).forEach((w) => {
+      if (!w.file || w.buffer || w.loading) return;
+      w.loading = true;
+      fetch(w.file)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .then((b) => { w.buffer = b; if (activeT && WORKS[activeT.kind] === w) onReady(); })
+        .catch(() => { w.loading = false; });
+    });
+  }
+
+  function workVoice(kind) {
+    const w = WORKS[kind];
+    const v = baseVoice(w.level, w.look, w.label, 0.25);
+    v.fadeIn = w.fadeIn;
+    v.fadeOut = w.fadeOut;
+    const s = ctx.createBufferSource();
+    s.buffer = w.buffer;
+    s.loop = true;
+    s.connect(v.bus);
+    s.start();
+    v.sources.push(s);
+    return v;
+  }
+
   function impulse(seconds) {
     const len = Math.floor(ctx.sampleRate * seconds);
     const buf = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -492,7 +564,7 @@
   }
 
   // ── 实时波形 ──────────────────────────────────────────────
-  const g2d = wave ? wave.getContext('2d') : null;
+  // 画在正在发声的元素自己的 canvas 上（logo 下方，或作品标题旁边）
   const darkScheme = matchMedia('(prefers-color-scheme: dark)');
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const POINTS = 120;          // 波形上的点数
@@ -501,37 +573,72 @@
   let rafId = 0;
   let lastFrame = 0;
   let smoothPeak = 0;
+  let silentLevel = 0;      // 无声占位波形的大小（0–1，悬停时渐大，离开时渐小）
   let dpr = 1;
 
   const lookColor = () => (darkScheme.matches ? look.dark : look.light);
 
-  function startDrawing() {
-    if (!g2d || !analyser || rafId) return;
-    const r = wave.getBoundingClientRect();
+  // silent = true：作品还没有录音，画一条同色的动态波形占位（不读取真实声音）
+  function showWave(t, silent = false) {
+    if (drawT && drawT !== t) hideWave(drawT);
+    drawT = t;
+    t.silent = silent;
+    if (!t.ui || !t.canvas || (!silent && !analyser)) return;
+    t.ui.classList.add('is-playing');
+    t.g2d = t.g2d || t.canvas.getContext('2d');
+    const r = t.canvas.getBoundingClientRect();
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    wave.width = Math.max(1, Math.round(r.width * dpr));
-    wave.height = Math.max(1, Math.round(r.height * dpr));
-    samples = samples || new Float32Array(analyser.fftSize);
-    rafId = requestAnimationFrame(drawFrame);
+    t.canvas.width = Math.max(1, Math.round(r.width * dpr));
+    t.canvas.height = Math.max(1, Math.round(r.height * dpr));
+    if (!silent) samples = samples || new Float32Array(analyser.fftSize);
+    if (!rafId) rafId = requestAnimationFrame(drawFrame);
+  }
+
+  function hideWave(t) {
+    if (t.ui) t.ui.classList.remove('is-playing');
+    if (t.g2d) t.g2d.clearRect(0, 0, t.canvas.width, t.canvas.height);
+    t.el.style.removeProperty('--voice-color');
   }
 
   function drawFrame(now) {
     rafId = 0;
-    const W = wave.width;
-    const H = wave.height;
+    const t = drawT;
+    if (!t || !t.g2d) return;
+    const g2d = t.g2d;
+    const W = t.canvas.width;
+    const H = t.canvas.height;
 
-    // 访客没在悬停、声音也已经完全淡出：收起波形，换回提示文字
-    if (!active && voices.length === 0) {
-      g2d.clearRect(0, 0, W, H);
-      ui.classList.remove('is-playing');
-      el.style.removeProperty('--voice-color');
+    // 什么时候收起波形、换回提示：
+    //   有声音 → 访客离开、声音也完全淡出之后；无声占位 → 访客离开、波形缩小到看不见之后
+    const silent = t.silent;
+    if (silent) silentLevel += ((activeT === t ? 1 : 0) - silentLevel) * 0.08;
+    const finished = silent ? activeT !== t && silentLevel < 0.02 : !activeT && voices.length === 0;
+    if (finished) {
+      hideWave(t);
+      drawT = null;
       smoothPeak = 0;
+      silentLevel = 0;
       return;
     }
     rafId = requestAnimationFrame(drawFrame);
     if (reduceMotion.matches && now - lastFrame < 160) return; // 减少动态效果时，每秒只更新几次
     lastFrame = now;
 
+    const at = silent ? silentWave(now / 1000, H) : liveWave(H);
+
+    g2d.clearRect(0, 0, W, H);
+    const color = lookColor();
+    g2d.strokeStyle = color;
+    g2d.fillStyle = color;
+    g2d.lineJoin = 'round';
+    g2d.lineCap = 'round';
+    (STYLES[look.style] || STYLES.smooth)(g2d, at, W, H, color);
+    g2d.globalAlpha = 1;
+    g2d.shadowBlur = 0;
+  }
+
+  // 真实声音的波形
+  function liveWave(H) {
     analyser.getFloatTimeDomainData(samples);
     // 从一个"向上穿过 0"的位置开始画，波形会稳定一些，不会左右乱跳
     const span = 768; // 每帧显示约 16 毫秒的声音
@@ -547,7 +654,7 @@
     const limit = H * 0.48;
     // 把采样压缩成 POINTS 个点：每个点取附近几个采样的平均值，线条更顺
     const bucket = Math.max(1, Math.floor((span - 32) / POINTS));
-    const at = (offset = 0) => {
+    return (offset = 0) => {
       const pts = new Array(POINTS);
       for (let k = 0; k < POINTS; k++) {
         const i0 = start + offset + Math.floor((k * (span - 32)) / (POINTS - 1));
@@ -558,16 +665,23 @@
       }
       return pts;
     };
+  }
 
-    g2d.clearRect(0, 0, W, H);
-    const color = lookColor();
-    g2d.strokeStyle = color;
-    g2d.fillStyle = color;
-    g2d.lineJoin = 'round';
-    g2d.lineCap = 'round';
-    (STYLES[look.style] || STYLES.smooth)(g2d, at, W, H, color);
-    g2d.globalAlpha = 1;
-    g2d.shadowBlur = 0;
+  // 无声占位：几条正弦波叠加、缓慢流动；龙舟（竖条画法）会跟着 120 BPM 的节拍跳动
+  function silentWave(time, H) {
+    const pulse = look.style === 'bars' ? 0.35 + 0.65 * Math.exp(-((time % 0.5) / 0.12)) : 1;
+    const breathe = 0.75 + 0.25 * Math.sin(time * 0.9);
+    const amp = H * 0.4 * silentLevel * pulse * breathe;
+    return (offset = 0) => {
+      const pts = new Array(POINTS);
+      for (let k = 0; k < POINTS; k++) {
+        const x = (k + offset * 0.4) / POINTS;
+        pts[k] = amp * (0.55 * Math.sin(2 * Math.PI * x * 2.2 + time * 2.1)
+          + 0.3 * Math.sin(2 * Math.PI * x * 5.3 - time * 3.4)
+          + 0.15 * Math.sin(2 * Math.PI * x * 11 + time * 5));
+      }
+      return pts;
+    };
   }
 
   function line(c, pts, W, H, dy = 0) {
@@ -616,12 +730,14 @@
     // Felt keys：竖条，像一下下敲击
     bars(c, at, W, H) {
       const pts = at();
-      const step = W / pts.length;
-      c.lineWidth = Math.max(2 * dpr, step * 1.1);
+      // 竖条之间留出间隙（画布小时竖条少一些），安静时只剩一排小点，不会连成一条线
+      const count = Math.max(8, Math.min(pts.length / 2, Math.floor(W / (5 * dpr))));
+      const stride = pts.length / count;
+      c.lineWidth = 2 * dpr;
       c.beginPath();
-      for (let k = 0; k < pts.length; k += 2) {
-        const x = k * step + step;
-        const h = Math.max(Math.abs(pts[k]), 1.5 * dpr);
+      for (let b = 0; b < count; b++) {
+        const x = (b + 0.5) * (W / count);
+        const h = Math.max(Math.abs(pts[Math.floor(b * stride)]), 0.8 * dpr);
         c.moveTo(x, H / 2 - h);
         c.lineTo(x, H / 2 + h);
       }
@@ -650,64 +766,84 @@
     },
   };
 
-  // 切换浅色 / 深色模式时，声波纹颜色跟着换
+  // 切换浅色 / 深色模式时，logo 声波纹的颜色跟着换
   darkScheme.addEventListener?.('change', () => {
-    if (ui.classList.contains('is-playing')) el.style.setProperty('--voice-color', lookColor());
+    if (drawT && drawT.kind === 'logo') drawT.el.style.setProperty('--voice-color', lookColor());
   });
 
   // ── 交互 ──────────────────────────────────────────────────
-  function activate() {
-    if (active) return;
-    active = true;
-    el.classList.add('is-active');
-    el.setAttribute('aria-pressed', 'true');
-    playing = startSound();
-    if (!playing) setHint(TEXT.locked);
+  function activate(t) {
+    if (activeT === t) return;
+    if (activeT) deactivate(activeT); // 同一时间只有一个在发声
+    activeT = t;
+    t.el.classList.add('is-active');
+    if (t.kind === 'logo') t.el.setAttribute('aria-pressed', 'true');
+    // 作品还没有录音：只显示同色的动态波形，不发声
+    if (t.kind !== 'logo' && !hasAudio(t)) {
+      playing = false;
+      look = WORKS[t.kind] ? WORKS[t.kind].look : DEFAULT_LOOK;
+      showWave(t, true);
+      return;
+    }
+    playing = startSound(t);
+    if (!playing) {
+      if (t.kind === 'logo') setHint(TEXT.locked);
+      else if (t.note) t.note.textContent = TEXT.workLocked;
+    }
   }
 
-  function deactivate() {
-    if (!active) return;
-    active = false;
+  function deactivate(t) {
+    if (!t || activeT !== t) return;
+    activeT = null;
     playing = false;
-    el.classList.remove('is-active');
-    el.setAttribute('aria-pressed', 'false');
+    t.el.classList.remove('is-active');
+    if (t.kind === 'logo') {
+      t.el.setAttribute('aria-pressed', 'false');
+      setHint(TEXT.idle);
+    } else if (t.note) {
+      t.note.textContent = '♪';
+    }
     if (ctx) stopSound();
-    setHint(TEXT.idle);
   }
 
-  // 鼠标：悬停开始，移开结束
-  el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') activate(); });
-  el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') deactivate(); });
-
-  // 手指 / 触控笔：按住开始，松手结束（手指滑动去滚动页面也会结束）
-  el.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse') return;
-    unlock();
-    activate();
+  triggers.forEach((t) => {
+    const { el } = t;
+    // 鼠标：悬停开始，移开结束
+    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') activate(t); });
+    el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') deactivate(t); });
+    // 手指 / 触控笔：按住开始，松手结束（手指滑动去滚动页面也会结束）
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      unlock();
+      activate(t);
+    });
+    ['pointerup', 'pointercancel'].forEach((type) =>
+      el.addEventListener(type, (e) => { if (e.pointerType !== 'mouse') deactivate(t); }));
+    el.addEventListener('contextmenu', (e) => e.preventDefault()); // 屏蔽 Android 长按菜单
+    // 键盘：Tab 到这里后按 Enter / 空格 开关
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      unlock();
+      if (activeT === t) deactivate(t); else activate(t);
+    });
+    el.addEventListener('blur', () => deactivate(t));
   });
-  ['pointerup', 'pointercancel'].forEach((type) =>
-    el.addEventListener(type, (e) => { if (e.pointerType !== 'mouse') deactivate(); }));
-  el.addEventListener('contextmenu', (e) => e.preventDefault()); // 屏蔽 Android 长按菜单
-
-  // 键盘：Tab 到 logo 后按 Enter / 空格 开关
-  el.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    e.preventDefault();
-    unlock();
-    if (active) deactivate(); else activate();
-  });
-  el.addEventListener('blur', deactivate);
 
   // 切到别的标签页时停止
-  document.addEventListener('visibilitychange', () => { if (document.hidden) deactivate(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) deactivate(activeT); });
 
-  // 调试用（网址加 ?sound-debug 才会出现）：逐个试听音色
+  // 调试用（网址加 ?sound-debug 才会出现）：逐个试听
   if (location.search.includes('sound-debug')) {
+    const logoT = triggers.find((t) => t.kind === 'logo');
     window.wgSound = {
       patches: PATCHES.map((p) => p.name),
-      play(patch, textures = true) { force = { patch, textures }; deactivate(); activate(); },
-      stop() { force = null; deactivate(); },
+      works: Object.keys(WORKS),
+      play(patch, textures = true) { force = { patch, textures }; deactivate(activeT); activate(logoT); },
+      playWork(kind) { force = null; deactivate(activeT); activate(triggers.find((t) => t.kind === kind)); },
+      stop() { force = null; deactivate(activeT); },
       setLevel(patch, level) { PATCHES[patch].level = level; },
+      setWorkLevel(kind, level) { WORKS[kind].level = level; },
       now: () => (current ? current.label : ''),
     };
   }

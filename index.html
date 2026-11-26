@@ -21,6 +21,9 @@
   <link rel="preload" href="fonts/work-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/nanum-brush-script-latin.woff2" as="font" type="font/woff2" crossorigin>
 
+  <!-- 有 JS 时才隐藏波浪线、等滚动到时再"画"出来；没有 JS 时直接显示 -->
+  <script>document.documentElement.classList.add('js');</script>
+
   <style>
     /* 字体都放在本地 fonts/，不从 Google 加载（SIL Open Font License，授权文件在同一文件夹） */
     /* 正文：Work Sans */
@@ -31,7 +34,7 @@
       font-style: normal;
       font-display: swap;
     }
-    /* 首页大标题 + 左上角小字：Nanum Brush Script（毛笔字） */
+    /* 首页大标题、左上角小字、作品编号：Nanum Brush Script（毛笔字） */
     @font-face {
       font-family: "Nanum Brush Script";
       src: url(fonts/nanum-brush-script-latin.woff2) format("woff2");
@@ -47,17 +50,18 @@
       --paper: #EDF6F4;      /* 中间内容区背景：极浅的绿 */
       --ink: var(--wine);
       --muted: #8A5A5A;      /* 次要文字（只用在浅色背景上） */
-      --line: rgba(87, 37, 37, .16);
+      --rule: rgba(87, 37, 37, .38);   /* 手绘波浪线 */
       --band-bg: var(--sage);  /* 首屏和联系区 */
       --band-ink: var(--wine);
       --band-line: rgba(87, 37, 37, .25);
+      --brush: "Nanum Brush Script", "Work Sans", cursive;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --paper: #1F1212;
         --ink: #D3E8E2;
         --muted: #8FB0A8;
-        --line: rgba(137, 195, 183, .16);
+        --rule: rgba(137, 195, 183, .38);
         --band-bg: var(--wine);
         --band-ink: var(--sage);
         --band-line: rgba(137, 195, 183, .3);
@@ -71,7 +75,7 @@
       color: var(--ink); background: var(--paper);
     }
     a { color: inherit; }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
     /* logo 用遮罩渲染，颜色跟随文字颜色，深色模式自动变成绿色 */
     .mark {
@@ -80,27 +84,68 @@
               mask: url(images/wg-mark.png) center / contain no-repeat;
     }
 
-    header { position: sticky; top: 0; z-index: 1; background: var(--band-bg); color: var(--band-ink); border-bottom: 1px solid var(--band-line); }
+    /* 绿色区块：品牌色 + 极淡的纸张颗粒（images/grain.svg） */
+    header, .band { background: url(images/grain.svg), var(--band-bg); color: var(--band-ink); }
+
+    header { position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--band-line); }
     header .wrap { display: flex; justify-content: space-between; align-items: center; height: 56px; }
-    .logo { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-decoration: none; white-space: nowrap; }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; }
     .logo .mark { height: 28px; }
-    .logo .word { font-family: "Nanum Brush Script", "Work Sans", cursive; font-size: 27px; font-weight: 400; letter-spacing: 0; line-height: 1; }
+    .logo .word { font-family: var(--brush); font-size: 27px; line-height: 1; }
     nav { white-space: nowrap; }
     nav a { margin-left: 20px; font-size: 14px; text-decoration: none; opacity: .8; }
     nav a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
 
-    section { padding: 96px 0; border-bottom: 1px solid var(--line); }
-    .band { background: var(--band-bg); color: var(--band-ink); border-bottom-color: var(--band-line); }
+    section { padding: 96px 0; }
+    .band { position: relative; }
     .label { margin-bottom: 24px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
     .band .label { color: inherit; }
     h1 {
-      margin-bottom: 20px; font-family: "Nanum Brush Script", "Work Sans", cursive;
+      margin-bottom: 20px; font-family: var(--brush);
       font-size: clamp(48px, 16vw, 132px); font-weight: 400; line-height: .9; letter-spacing: 0;
     }
-    h2 { margin-bottom: 16px; font-size: 28px; line-height: 1.25; font-weight: 600; }
+    h2 { max-width: 820px; margin-bottom: 16px; font-size: 28px; line-height: 1.3; font-weight: 500; }
     .lead { margin-bottom: 8px; font-size: 22px; }
 
-    .hero { padding: 72px 0 96px; overflow: hidden; }
+    /* ── ① 手绘波浪线 ─────────────────────────────────────────
+       绿色区块的上下边缘、段落分隔线、列表分隔线，都用和 logo 同一种手绘波浪。
+       滚动到时从左到右"画"出来一次（js/site.js 加上 is-drawn）。 */
+    .hero::after, #contact::before, #contact::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 22px;
+      background: var(--paper); pointer-events: none;
+      -webkit-mask: url(images/wave-edge.svg) repeat-x 0 100% / 640px 100%;
+              mask: url(images/wave-edge.svg) repeat-x 0 100% / 640px 100%;
+    }
+    .hero::after { bottom: -1px; }
+    #contact::before { top: -1px; transform: scaleY(-1); -webkit-mask-position: 230px 100%; mask-position: 230px 100%; }
+    #contact::after { bottom: -1px; -webkit-mask-position: 410px 100%; mask-position: 410px 100%; }
+
+    .wave-rule {
+      height: 22px; background: var(--rule);
+      -webkit-mask: url(images/wave-rule-big.svg) repeat-x 0 50% / 520px 100%;
+              mask: url(images/wave-rule-big.svg) repeat-x 0 50% / 520px 100%;
+    }
+    .list { list-style: none; margin-top: 36px; }
+    .list li { position: relative; padding: 18px 0 16px; }
+    .list li::before {
+      content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 12px; background: var(--rule);
+      -webkit-mask: url(images/wave-rule.svg) repeat-x var(--wave-x, 0) 50% / 360px 100%;
+              mask: url(images/wave-rule.svg) repeat-x var(--wave-x, 0) 50% / 360px 100%;
+    }
+    .list li:nth-child(2) { --wave-x: -110px; --delay: .12s; }
+    .list li:nth-child(3) { --wave-x: -230px; --delay: .24s; }
+    .list li:nth-child(4) { --wave-x: -60px; --delay: .36s; }
+    .js .wave-rule, .js .list li::before {
+      clip-path: inset(0 100% 0 0);
+      transition: clip-path 1.4s cubic-bezier(.65, .05, .25, 1) var(--delay, 0s);
+    }
+    .js .wave-rule.is-drawn, .js .list li.is-drawn::before { clip-path: inset(0 0 0 0); }
+    #practice { padding-bottom: 64px; }
+    #works { padding-top: 64px; }
+    .divider { margin-top: 0; }
+
+    /* ── ④ 首屏：手机上下排列；电脑上文字在左、大 logo 在右 ─────── */
+    .hero { padding: 72px 0 104px; overflow: hidden; }
 
     /* 首页 logo 互动：悬停（电脑）/ 按住（手机）→ 摆动 + 声波纹 + 环境音（js/logo-sound.js） */
     .sound-mark {
@@ -134,30 +179,69 @@
     .sound-wave { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .5s; }
     .sound-ui.is-playing .sound-hint { opacity: 0; }
     .sound-ui.is-playing .sound-wave { opacity: 1; }
-    @media (prefers-reduced-motion: reduce) {
-      .sound-mark.is-active .mark, .sound-mark.is-active .ripple { animation: none; }
-      .sound-mark.is-active .ripple:first-child { opacity: .3; transform: translate(-50%, -50%) scale(1.3); }
+
+    @media (min-width: 900px) {
+      .hero { padding: 64px 0 120px; }
+      .hero-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "text mark";
+        align-items: center; column-gap: 72px;
+      }
+      .hero-text { grid-area: text; }
+      .hero-mark { grid-area: mark; display: flex; flex-direction: column; align-items: center; padding-right: 40px; }
+      .hero-mark .sound-mark .mark { height: 320px; }
+      .hero-mark .sound-ui { width: 260px; margin: 20px 0 0; }
+      .hero-mark .sound-hint { left: 50%; transform: translate(-50%, -50%); }
+      .hero .lead { font-size: 26px; }
+      .hero .intro { max-width: 500px; }
+      #practice .list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px; max-width: 900px; }
     }
 
-    .list { list-style: none; margin-top: 32px; }
-    .list li { padding: 14px 0; border-top: 1px solid var(--line); }
+    /* ── ③ 作品：每个作品一种颜色；悬停 / 按住会听到一小段声音，标题旁画出同色波形 ── */
+    .works li {
+      --work: var(--work-light, var(--ink));
+      display: grid; grid-template-columns: 76px minmax(0, 1fr); padding: 30px 0 28px;
+      cursor: pointer; outline-offset: 6px; border-radius: 4px;
+      touch-action: pan-y; -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+    }
+    @media (prefers-color-scheme: dark) { .works li { --work: var(--work-dark, var(--ink)); } }
+    .works .num { font-family: var(--brush); font-size: 46px; line-height: .7; padding-top: 6px; color: var(--work); }
+    .work-head { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+    .works h3 { font-size: 21px; font-weight: 600; transition: color .3s; }
+    .works li.is-active h3 { color: var(--work); }
+    .works p { max-width: 680px; color: var(--muted); }
+    .work-sound { position: relative; flex: none; width: 120px; height: 30px; }
+    .work-note { position: absolute; left: 0; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 15px; color: var(--work); opacity: .5; transition: opacity .3s; }
+    .works li:hover .work-note, .works li:focus-visible .work-note { opacity: 1; }
+    .work-sound canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .4s; }
+    .work-sound.is-playing canvas { opacity: 1; }
+    .work-sound.is-playing .work-note { opacity: 0; }
 
-    .works li { display: grid; grid-template-columns: 40px 1fr; padding: 24px 0; }
-    .works .num { color: var(--muted); }
-    .works h3 { font-size: 20px; font-weight: 600; }
-    .works p { color: var(--muted); }
-
+    #contact p { max-width: 640px; }
     .email { display: inline-block; margin: 32px 0 16px; font-size: 24px; font-weight: 600; text-underline-offset: 6px; }
     .social a { margin-right: 20px; text-underline-offset: 4px; }
 
     footer { padding: 32px 0; font-size: 13px; color: var(--muted); }
 
+    @media (prefers-reduced-motion: reduce) {
+      .sound-mark.is-active .mark, .sound-mark.is-active .ripple { animation: none; }
+      .sound-mark.is-active .ripple:first-child { opacity: .3; transform: translate(-50%, -50%) scale(1.3); }
+      .js .wave-rule, .js .list li::before { clip-path: none; transition: none; }
+    }
+
     @media (max-width: 480px) {
       .logo .word { display: none; }   /* 手机上导航栏只留 logo 图形 */
       nav a { margin-left: 18px; }
       section { padding: 64px 0; }
-      .hero { padding: 48px 0 64px; }
+      #practice { padding-bottom: 48px; }
+      #works { padding-top: 48px; }
+      .hero { padding: 48px 0 76px; }
       .sound-mark .mark { height: 140px; }
+      .works li { position: relative; grid-template-columns: 54px minmax(0, 1fr); }
+      .works .num { font-size: 40px; }
+      /* 手机上标题旁放不下：♪ 和波形放到编号正下方的空白处 */
+      .work-sound { position: absolute; left: 0; top: 74px; width: 44px; height: 24px; }
+      .work-note { font-size: 13px; }
     }
   </style>
 </head>
@@ -178,19 +262,23 @@
 
     <!-- 01 Intro -->
     <section class="band hero">
-      <div class="wrap">
-        <div class="sound-mark" role="button" tabindex="0" aria-pressed="false"
-             aria-label="Wave Grinder logo. Hover, or press and hold, to hear an ambient sound.">
-          <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
-          <span class="mark"></span>
+      <div class="wrap hero-grid">
+        <div class="hero-mark">
+          <div class="sound-mark" role="button" tabindex="0" aria-pressed="false"
+               aria-label="Wave Grinder logo. Hover, or press and hold, to hear an ambient sound.">
+            <span class="ripple"></span><span class="ripple"></span><span class="ripple"></span>
+            <span class="mark"></span>
+          </div>
+          <div class="sound-ui">
+            <p class="sound-hint" aria-hidden="true"></p>
+            <canvas class="sound-wave" aria-hidden="true"></canvas>
+          </div>
         </div>
-        <div class="sound-ui">
-          <p class="sound-hint" aria-hidden="true"></p>
-          <canvas class="sound-wave" aria-hidden="true"></canvas>
+        <div class="hero-text">
+          <h1>Wave Grinder</h1>
+          <p class="lead">Where people, sound and culture meet.</p>
+          <p class="intro">An independent creative studio for sound, art and technology, based in Edinburgh, Scotland.</p>
         </div>
-        <h1>Wave Grinder</h1>
-        <p class="lead">Where people, sound and culture meet.</p>
-        <p>An independent creative studio for sound, art and technology, based in Edinburgh, Scotland.</p>
       </div>
     </section>
 
@@ -209,30 +297,41 @@
       </div>
     </section>
 
-    <!-- 03 Selected Works -->
+    <div class="wrap divider"><div class="wave-rule" aria-hidden="true"></div></div>
+
+    <!-- 03 Selected Works：data-sound 决定悬停时播放哪段声音（js/logo-sound.js） -->
     <section id="works">
       <div class="wrap">
         <p class="label">02 — Selected Works</p>
         <h2>A selection of projects reflecting our interests and approaches.</h2>
         <ul class="list works">
-          <li>
+          <li data-sound="waves" tabindex="0" style="--work-light: #2F3E6B; --work-dark: #A9B8F0;">
             <span class="num">01</span>
             <div>
-              <h3>Waves of Intuition</h3>
+              <div class="work-head">
+                <h3>Waves of Intuition</h3>
+                <span class="work-sound" aria-hidden="true"><span class="work-note">♪</span><canvas></canvas></span>
+              </div>
               <p>In development · Interactive sound experience — Your spoken question, the cards you draw and the sky at that moment become an immersive soundscape, where your own voice slowly turns into music.</p>
             </div>
           </li>
-          <li>
+          <li data-sound="dragon" tabindex="0" style="--work-light: #8C3A1E; --work-dark: #F0A38A;">
             <span class="num">02</span>
             <div>
-              <h3>Dragon Boat Soundscape</h3>
+              <div class="work-head">
+                <h3>Dragon Boat Soundscape</h3>
+                <span class="work-sound" aria-hidden="true"><span class="work-note">♪</span><canvas></canvas></span>
+              </div>
               <p>2026 · Interactive sound installation for HelloArt — Visitors play 16 drum pads together, layering drums, loops, water and festival sounds in sync to steer a pixel-art dragon boat across the screen.</p>
             </div>
           </li>
-          <li>
+          <li data-sound="playhouse" tabindex="0" style="--work-light: #5B2A4F; --work-dark: #E8A6C4;">
             <span class="num">03</span>
             <div>
-              <h3>Playhouse of the Dead</h3>
+              <div class="work-head">
+                <h3>Playhouse of the Dead</h3>
+                <span class="work-sound" aria-hidden="true"><span class="work-note">♪</span><canvas></canvas></span>
+              </div>
               <p>2025 · Sound design for Ray Interactive — Opening-animation sound and eerie ambient atmospheres for an immersive Halloween experience of interactive installations and arcade games at The Pitt, Edinburgh.</p>
             </div>
           </li>
@@ -260,6 +359,7 @@
     <div class="wrap">© 2026 Wave Grinder</div>
   </footer>
 
+  <script src="js/site.js" defer></script>
   <script src="js/logo-sound.js" defer></script>
 
 </body>
