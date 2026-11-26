@@ -2,3 +2,12 @@
 RedirectMatch 404 /\.git
 RedirectMatch 404 \.md$
 RedirectMatch 404 /\.gitignore$
+
+# 缓存：网页和脚本每次都向服务器确认有没有新版本（没变化时服务器只回一句"没变"，很快）
+# 这样每次部署后，访客刷新就能看到新版本；不会再被浏览器或 CDN 存着的旧脚本卡住一周
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+    Header unset Expires
+  </FilesMatch>
+</IfModule>
