@@ -140,5 +140,6 @@ hPanel → 搜索 **FTP Accounts** 查看主机地址、用户名和端口，用
    - 作品编号的颜色在 `index.html` 每个作品的 `--work-light` / `--work-dark`；波形的画法和颜色在 `WORKS` 的 `look`。调试：网址加 `?sound-debug` 后，在控制台运行 `wgSound.playWork('dragon')`。
    - **换成你们自己的声音：** 把一段可循环的音频（建议 mp3，20–40 秒，200KB–1MB 左右）放进 `audio/` 文件夹，然后把 `js/logo-sound.js` 顶部的 `AMBIENT_FILE = ''` 改成 `AMBIENT_FILE = 'audio/文件名.mp3'`。
    - 音量、淡入淡出时间也在同一个位置调整（`VOLUME`、`FADE_IN`、`FADE_OUT`）。
+   - **改了 `js/` 里的文件以后**：把 `index.html` 底部 `<script src="js/...?v=2">` 的数字加 1（`v=3`、`v=4`……）。Hostinger 的 CDN 有时会把旧版 JS 多缓存几天，换个版本号等于换了新地址，所有访客都会马上拿到新版。
 3. 简短的 About / 团队介绍。
 4. 内容多起来以后，再评估是否迁移到 WordPress 或其他 CMS。
